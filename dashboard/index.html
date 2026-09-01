@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header>
+  <h1>Subagents Dashboard</h1>
+  <div class="meta">
+    API base: <span class="api-base" id="api-base"></span>
+    &nbsp;·&nbsp;
+    <span id="last-updated">not yet updated</span>
+  </div>
+</header>
+
+<div class="error-banner" id="error-banner"></div>
+
+<section>
+  <h2>Currently Running</h2>
+  <div id="running-grid"><!-- exactly 3 slots, rendered by app.js --></div>
+</section>
+
+<section>
+  <h2>Queued</h2>
+  <ul id="queued-list"><!-- variable length, rendered by app.js --></ul>
+</section>
+
+<footer>
+  Polls <code>GET /api/logs</code> every 4s. Elapsed-time counters update every second client-side.
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+/* dashboard/style.css — black background, white text, whole page. */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: #fff;
+  min-height: 100%;
+}
+
+body {
+  font-family: "SF Mono", "Menlo", "Consolas", "Courier New", monospace;
+  padding: 24px;
+}
+
+header {
+  margin-bottom: 28px;
+}
+
+header h1 {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+header .meta {
+  color: #999;
+  font-size: 0.8rem;
+}
+
+header .meta .api-base {
+  color: #ccc;
+}
+
+section {
+  margin-bottom: 32px;
+}
+
+section > h2 {
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ccc;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+/* --- Running: fixed 3-slot grid --- */
+
+#running-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 820px) {
+  #running-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.slot-card {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.slot-card.active {
+  border-color: #4caf50;
+  background: #071a07;
+}
+
+.slot-card.empty {
+  border-style: dashed;
+  color: #555;
+  align-items: center;
+  text-align: center;
+}
+
+.slot-card .task-name {
+  font-size: 1rem;
+  font-weight: bold;
+  word-break: break-word;
+  margin-bottom: 6px;
+}
+
+.slot-card.active .task-name {
+  color: #b7ffb7;
+}
+
+.slot-card .elapsed {
+  font-size: 0.85rem;
+  color: #9fdc9f;
+}
+
+.slot-card .sub-meta {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 6px;
+}
+
+.slot-card.empty .empty-label {
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+}
+
+/* --- Queued: variable-length list --- */
+
+#queued-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#queued-list li {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+
+#queued-list li .task-name {
+  font-weight: bold;
+}
+
+#queued-list li .queued-at {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+#queued-list li .waiting {
+  color: #ffd479;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+.empty-note {
+  color: #666;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.error-banner {
+  border: 1px solid #a33;
+  background: #200;
+  color: #ffb3b3;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.error-banner.visible {
+  display: block;
+}
+
+footer {
+  color: #555;
+  font-size: 0.75rem;
+  margin-top: 40px;
+}

@@ -146,6 +146,17 @@ server/
     001_create_subagent_logs.sql
   routes/
     logs.js                POST/PATCH/GET /api/logs
+dashboard/                 Static frontend (see dashboard/README.md)
 .env.example
 package.json
 ```
+
+## Dashboard (frontend)
+
+`dashboard/` contains a static (no build step) HTML/CSS/vanilla-JS
+dashboard that polls `GET /api/logs` and shows live subagent progress —
+a fixed 3-slot "Currently Running" grid plus a variable-length "Queued"
+list, black background / white text. It's a read-only consumer of this
+API and never needs the write-auth `API_KEY`. See
+[`dashboard/README.md`](./dashboard/README.md) for how to serve it and
+point it at a backend URL.
