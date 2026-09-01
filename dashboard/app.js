@@ -4,11 +4,11 @@
 //   - a fixed 3-slot "Currently Running" grid
 //   - a variable-length "Queued" list
 //
-// Elapsed-time counters re-render every second from the ISO timestamps
+// Elapsed-time counters re-render once per minute from the ISO timestamps
 // already in memory (no extra network calls needed for the ticking).
 
 const POLL_INTERVAL_MS = 4000;
-const TICK_INTERVAL_MS = 1000;
+const TICK_INTERVAL_MS = 60000; // display-only cadence: elapsed-time text now refreshes once/minute, not every second.
 const FETCH_LIMIT = 50;
 const RUNNING_SLOTS = 3;
 
@@ -131,7 +131,7 @@ function render() {
   }
 }
 
-// Re-render only the elapsed-time text nodes every second, without
+// Re-render only the elapsed-time text nodes once per minute, without
 // re-fetching or rebuilding the whole DOM.
 function tick() {
   document.querySelectorAll(".elapsed[data-started-at]").forEach((el) => {
