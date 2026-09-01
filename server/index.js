@@ -6,7 +6,12 @@
 
 import "dotenv/config";
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import logsRouter from "./routes/logs.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DASHBOARD_DIR = path.join(__dirname, "..", "dashboard");
 
 function checkRequiredEnv() {
   const missing = [];
@@ -38,8 +43,18 @@ function main() {
 
   app.use("/api/logs", logsRouter);
 
+  // Serve the static dashboard (dashboard/index.html etc.) from the same
+  // origin/port as the API, so the whole thing runs behind one Railway
+  // URL instead of needing a separate GitHub Pages deploy. The dashboard's
+  // own JS defaults to same-origin API calls when no explicit base URL is
+  // configured (see dashboard/config.js).
+  app.use(express.static(DASHBOARD_DIR));
+
   app.use((req, res) => {
-    res.status(404).json({ error: "Not found." });
+    if (req.path.startsWith("/api/") || req.path === "/health") {
+      return res.status(404).json({ error: "Not found." });
+    }
+    res.sendFile(path.join(DASHBOARD_DIR, "index.html"));
   });
 
   // eslint-disable-next-line no-unused-vars

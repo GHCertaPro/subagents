@@ -15,7 +15,17 @@
 // See dashboard/README.md for details on repointing this at a deployed
 // backend URL later.
 
-const DEFAULT_API_BASE = "http://localhost:3000";
+// When the dashboard is served from the SAME origin as the backend (e.g.
+// Railway serving both dashboard/ and /api/logs from one service), default
+// to same-origin (empty string -> relative URLs) instead of localhost.
+// Falls back to localhost:3000 only when opened directly from a file://
+// or a dev server on a different port than the backend.
+const DEFAULT_API_BASE =
+  window.location.protocol === "http:" || window.location.protocol === "https:"
+    ? (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:3000"
+        : "")
+    : "http://localhost:3000";
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
