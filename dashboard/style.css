@@ -29,6 +29,19 @@ header h1 {
   margin: 0;
   font-size: 1.5rem;
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+}
+
+/* Submarine logo icon, inline before the title text. Sized relative to the
+   h1's own font-size (em) so it scales with the title and stays roughly
+   line-height-matched; inherits white via currentColor, no fixed color. */
+header h1 .logo-icon {
+  height: 1.1em;
+  width: auto;
+  margin-right: 0.4em;
+  flex-shrink: 0;
+  color: #fff;
 }
 
 /* Absolutely positioned so it takes zero space in the header's flex flow --
