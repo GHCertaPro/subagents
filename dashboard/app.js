@@ -7,7 +7,7 @@
 // Elapsed-time counters re-render once per minute from the ISO timestamps
 // already in memory (no extra network calls needed for the ticking).
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 15000;
 const TICK_INTERVAL_MS = 60000; // display-only cadence: elapsed-time text now refreshes once/minute, not every second.
 const FETCH_LIMIT = 50;
 const RUNNING_SLOTS = 3;
