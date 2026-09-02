@@ -35,7 +35,6 @@ const state = {
 };
 
 const els = {
-  apiBase: document.getElementById("api-base"),
   lastUpdated: document.getElementById("last-updated"),
   errorBanner: document.getElementById("error-banner"),
   runningGrid: document.getElementById("running-grid"),
@@ -61,8 +60,6 @@ function setView(view) {
 
 els.viewBtnLive.addEventListener("click", () => setView("live"));
 els.viewBtnHistory.addEventListener("click", () => setView("history"));
-
-els.apiBase.textContent = window.SUBAGENTS_API_BASE;
 
 function formatElapsed(fromIso) {
   if (!fromIso) return "0s";

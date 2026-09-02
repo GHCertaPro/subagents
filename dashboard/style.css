@@ -32,8 +32,19 @@ header .meta {
   font-size: 0.8rem;
 }
 
-header .meta .api-base {
-  color: #ccc;
+/* "last updated" is hover-reveal only: hidden by default (opacity, not
+   display/visibility, so it keeps its reserved layout space and never
+   causes a shift when it appears/disappears), and only fades in while the
+   mouse is over the page title (h1). Pure CSS via the general-sibling
+   combinator (h1 and .meta are both direct children of <header>) -- no JS
+   listener needed. */
+header .meta #last-updated {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+header h1:hover ~ .meta #last-updated {
+  opacity: 1;
 }
 
 /* --- Live/History view toggle --- */
