@@ -33,15 +33,16 @@ header h1 {
   align-items: center;
 }
 
-/* Submarine logo icon, inline before the title text. Sized relative to the
+/* Submarine logo image, inline before the title text. Sized relative to the
    h1's own font-size (em) so it scales with the title and stays roughly
-   line-height-matched; inherits white via currentColor, no fixed color. */
+   line-height-matched with the text beside it. */
 header h1 .logo-icon {
   height: 1.1em;
   width: auto;
   margin-right: 0.4em;
   flex-shrink: 0;
-  color: #fff;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
 /* Absolutely positioned so it takes zero space in the header's flex flow --
