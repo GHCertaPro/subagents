@@ -115,7 +115,7 @@ function renderRunningSlot(log) {
   div.className = "slot-card active";
   const elapsed = formatElapsed(log.started_at);
   div.innerHTML = `
-    <div class="task-name">${escapeHtml(log.task_name)}</div>
+    <div class="task-name">${escapeHtml(formatTaskName(log.task_name))}</div>
     <div class="elapsed" data-started-at="${escapeHtml(log.started_at)}">running ${elapsed}</div>
     <div class="sub-meta">${escapeHtml(log.requested_by || "")}</div>
   `;
@@ -128,7 +128,7 @@ function renderQueuedRow(log) {
   const waiting = formatElapsed(log.queued_at);
   const queuedAtLabel = log.queued_at ? new Date(log.queued_at).toLocaleString() : "unknown";
   li.innerHTML = `
-    <span class="task-name">${escapeHtml(log.task_name)}</span>
+    <span class="task-name">${escapeHtml(formatTaskName(log.task_name))}</span>
     <span class="queued-at">queued ${escapeHtml(queuedAtLabel)}</span>
     <span class="waiting" data-queued-at="${escapeHtml(log.queued_at)}">waiting ${waiting}</span>
   `;
@@ -140,7 +140,7 @@ function renderHistoryRow(log) {
   const li = document.createElement("li");
   li.className = `status-${escapeHtml(log.status)}`;
   li.innerHTML = `
-    <span class="task-name">${escapeHtml(log.task_name)}</span>
+    <span class="task-name">${escapeHtml(formatTaskName(log.task_name))}</span>
     <span class="status-badge">${escapeHtml(log.status)}</span>
     <span class="history-times">started ${escapeHtml(formatTimestamp(log.started_at))} → ended ${escapeHtml(formatTimestamp(log.ended_at))}</span>
   `;
@@ -155,6 +155,19 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// DISPLAY-ONLY formatting: replace underscores with spaces for the
+// human-readable rendering of a task_name. This must NEVER be used for
+// anything except the final text shown in the DOM -- not for dataset
+// keys/ids, not for API query params, not for any lookup/matching logic.
+// The raw underscored task_name string (as stored in Postgres and
+// returned by GET /api/logs) is left completely untouched everywhere
+// else in this file; this function is only called at the point where we
+// build the visible task-name text for a slot/row.
+function formatTaskName(taskName) {
+  if (taskName === null || taskName === undefined) return "";
+  return String(taskName).replace(/_/g, " ");
 }
 
 function render() {
