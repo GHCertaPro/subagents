@@ -14,19 +14,32 @@
     &nbsp;·&nbsp;
     <span id="last-updated">not yet updated</span>
   </div>
+  <div class="view-toggle" id="view-toggle" role="tablist">
+    <button type="button" class="toggle-btn active" id="view-btn-live" data-view="live" role="tab" aria-selected="true">Live</button>
+    <button type="button" class="toggle-btn" id="view-btn-history" data-view="history" role="tab" aria-selected="false">History</button>
+  </div>
 </header>
 
 <div class="error-banner" id="error-banner"></div>
 
-<section>
-  <h2>Currently Running</h2>
-  <div id="running-grid"><!-- exactly 3 slots, rendered by app.js --></div>
-</section>
+<div id="live-view">
+  <section>
+    <h2>Currently Running</h2>
+    <div id="running-grid"><!-- exactly 3 slots, rendered by app.js --></div>
+  </section>
 
-<section>
-  <h2>Queued</h2>
-  <ul id="queued-list"><!-- variable length, rendered by app.js --></ul>
-</section>
+  <section>
+    <h2>Queued</h2>
+    <ul id="queued-list"><!-- variable length, rendered by app.js --></ul>
+  </section>
+</div>
+
+<div id="history-view" hidden>
+  <section>
+    <h2>History</h2>
+    <ul id="history-list"><!-- variable length, terminal-status runs, rendered by app.js --></ul>
+  </section>
+</div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
