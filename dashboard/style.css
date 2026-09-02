@@ -19,15 +19,28 @@ body {
 
 header {
   margin-bottom: 28px;
+  position: relative; /* anchor for the absolutely-positioned .meta below */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 header h1 {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-size: 1.5rem;
   letter-spacing: 0.02em;
 }
 
+/* Absolutely positioned so it takes zero space in the header's flex flow --
+   it never pushes "Currently Running" (or anything else) down, and never
+   occupies its own visible row. It's still a normal DOM sibling of h1 (see
+   markup) so the existing hover-reveal sibling-combinator selector below
+   keeps working unchanged; it just renders tucked under the title/toggle
+   line instead of reserving layout space. */
 header .meta {
+  position: absolute;
+  top: 100%;
+  left: 0;
   color: #999;
   font-size: 0.8rem;
 }
@@ -52,7 +65,6 @@ header h1:hover ~ .meta #last-updated {
 .view-toggle {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
 }
 
 .toggle-btn {
