@@ -8,7 +8,8 @@
 // already in memory (no extra network calls needed for the ticking).
 
 const POLL_INTERVAL_MS = 15000;
-const TICK_INTERVAL_MS = 60000; // display-only cadence: elapsed-time text now refreshes once/minute, not every second.
+const TICK_INTERVAL_MS = 60000; // display-only cadence: queued "waiting X" text refreshes once/minute.
+const RUNNING_TICK_INTERVAL_MS = 5000; // display-only cadence: running "elapsed X" text refreshes every 5s (Gabe's request, running-slots only).
 const FETCH_LIMIT = 50;
 const RUNNING_SLOTS = 3;
 
@@ -120,7 +121,8 @@ function render() {
   }
 
   if (state.lastFetchAt) {
-    els.lastUpdated.textContent = `last updated ${state.lastFetchAt.toLocaleTimeString()}`;
+    const timeLabel = state.lastFetchAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    els.lastUpdated.textContent = `last updated ${timeLabel}`;
   }
 
   if (state.lastError) {
@@ -131,13 +133,18 @@ function render() {
   }
 }
 
-// Re-render only the elapsed-time text nodes once per minute, without
+// Re-render only the running-slot elapsed-time text nodes every 5s, without
 // re-fetching or rebuilding the whole DOM.
-function tick() {
+function tickRunning() {
   document.querySelectorAll(".elapsed[data-started-at]").forEach((el) => {
     const startedAt = el.getAttribute("data-started-at");
     el.textContent = `running ${formatElapsed(startedAt)}`;
   });
+}
+
+// Re-render only the queued-slot waiting-time text nodes once per minute,
+// without re-fetching or rebuilding the whole DOM.
+function tickQueued() {
   document.querySelectorAll(".waiting[data-queued-at]").forEach((el) => {
     const queuedAt = el.getAttribute("data-queued-at");
     el.textContent = `waiting ${formatElapsed(queuedAt)}`;
@@ -164,4 +171,5 @@ async function poll() {
 
 poll();
 setInterval(poll, POLL_INTERVAL_MS);
-setInterval(tick, TICK_INTERVAL_MS);
+setInterval(tickRunning, RUNNING_TICK_INTERVAL_MS);
+setInterval(tickQueued, TICK_INTERVAL_MS);
