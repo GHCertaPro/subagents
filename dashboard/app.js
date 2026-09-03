@@ -1,21 +1,32 @@
 // dashboard/app.js
 //
-// Polls GET /api/logs on an interval and renders one of two views,
-// switched by the Live/History toggle at the top of the page:
+// Renders one of two views, switched by the Live/History toggle at the
+// top of the page:
 //   - "live": a fixed 3-slot "Currently Running" grid + variable-length
 //     "Queued" list (the original default view)
-//   - "history": all terminal-status (done/failed/cancelled) runs,
-//     newest-first
+//   - "history": the 50 most-recent terminal-status (done/failed/
+//     cancelled) runs, newest-first, with a "Load More" button that
+//     fetches 25 more at a time via real server-side offset pagination.
 //
-// Both views are derived from the SAME single polled array (state.logs) --
-// no separate fetch loop for History. FETCH_LIMIT was bumped from 50 to
-// 200 specifically so that one poll cycle carries enough terminal-status
-// rows to populate History too; GET /api/logs supports up to 500 and a
-// plain LIMIT-based SELECT at this row count is trivial for Postgres, so
-// reusing the existing 15s poll cadence at a higher limit was simpler and
-// cheaper than adding a second endpoint/fetch loop or three separate
-// status-filtered requests (the API only supports a single ?status= value
-// per call, and terminal covers three statuses).
+// ARCHITECTURE NOTE (this used to be one shared fetch loop -- it no longer
+// is): Live and History now have their OWN separate fetch paths, because
+// they are fundamentally different concerns:
+//   - Live's job is a cheap, small, recurring poll (every 15s) that only
+//     ever needs the *current* queued+running rows -- there are at most a
+//     handful of those at once, so `poll()` below now asks the API for
+//     exactly `?status=queued,running` and nothing else.
+//   - History's job is a one-shot "give me N most recent finished rows"
+//     load, followed by on-demand "give me the next 25" loads triggered
+//     by the Load More button -- there is no reason to re-fetch this on a
+//     15s timer, and re-fetching would also fight with the pagination
+//     offset the user has scrolled through.
+// Previously FETCH_LIMIT was bumped from 50 to 200 specifically so the one
+// shared poll would carry enough terminal-status rows to also populate
+// History from state.logs. That workaround is gone now that History has
+// its own real limit/offset-backed fetch path (see loadInitialHistory /
+// loadMoreHistory below and the new offset support in
+// server/routes/logs.js) -- so the live poll's limit is back down to a
+// small number, and it no longer fetches terminal rows at all.
 //
 // Elapsed-time counters re-render once per minute from the ISO timestamps
 // already in memory (no extra network calls needed for the ticking).
@@ -23,15 +34,29 @@
 const POLL_INTERVAL_MS = 15000;
 const TICK_INTERVAL_MS = 60000; // display-only cadence: queued "waiting X" text refreshes once/minute.
 const RUNNING_TICK_INTERVAL_MS = 5000; // display-only cadence: running "elapsed X" text refreshes every 5s (Gabe's request, running-slots only).
-const FETCH_LIMIT = 200; // was 50; raised so one shared poll also carries enough history for the History view.
+const LIVE_FETCH_LIMIT = 100; // Live view only ever needs current queued+running rows -- always a small set.
+const LIVE_STATUS_PARAM = "queued,running";
+const HISTORY_STATUS_PARAM = "done,failed,cancelled";
+const HISTORY_INITIAL_LIMIT = 50; // Gabe's ask: History shows the 50 most recent terminal-status rows initially.
+const HISTORY_LOAD_MORE_LIMIT = 25; // Gabe's ask: "Load More" fetches up to 25 more at a time.
 const RUNNING_SLOTS = 3;
-const TERMINAL_STATUSES = ["done", "failed", "cancelled"];
 
 const state = {
   logs: [],
   lastFetchAt: null,
   lastError: null,
   view: "live", // "live" | "history"
+};
+
+// Separate state for the History tab's own paginated fetch path. Kept
+// distinct from `state` (which is the live-poll-only array now) so the
+// two fetch loops never step on each other.
+const historyState = {
+  logs: [], // accumulated rows, newest-first, across all loaded pages
+  ids: new Set(), // de-dupe guard -- see appendHistoryLogs()
+  total: 0, // total matching rows on the server, per the last response's `total`
+  loading: false,
+  initialized: false, // true once the first page has successfully loaded
 };
 
 const els = {
@@ -42,6 +67,7 @@ const els = {
   liveView: document.getElementById("live-view"),
   historyView: document.getElementById("history-view"),
   historyList: document.getElementById("history-list"),
+  historyLoadMore: document.getElementById("history-load-more"),
   viewBtnLive: document.getElementById("view-btn-live"),
   viewBtnHistory: document.getElementById("view-btn-history"),
 };
@@ -55,11 +81,19 @@ function setView(view) {
   els.viewBtnHistory.classList.toggle("active", isHistory);
   els.viewBtnLive.setAttribute("aria-selected", String(!isHistory));
   els.viewBtnHistory.setAttribute("aria-selected", String(isHistory));
+  if (isHistory && !historyState.initialized) {
+    // Lazy first load: History's own fetch path only kicks in once the
+    // tab is actually opened, not on initial page load alongside Live.
+    loadInitialHistory();
+  } else if (isHistory) {
+    renderHistory();
+  }
   render();
 }
 
 els.viewBtnLive.addEventListener("click", () => setView("live"));
 els.viewBtnHistory.addEventListener("click", () => setView("history"));
+els.historyLoadMore.addEventListener("click", () => loadMoreHistory());
 
 function formatElapsed(fromIso) {
   if (!fromIso) return "0s";
@@ -85,11 +119,6 @@ function isRunning(log) {
 function isQueued(log) {
   // Per spec: status 'queued' == started_at is still null.
   return log.status === "queued" && !log.started_at;
-}
-
-function isTerminal(log) {
-  // History view: any run that has finished one way or another.
-  return TERMINAL_STATUSES.includes(log.status);
 }
 
 function formatTimestamp(iso) {
@@ -217,33 +246,6 @@ function render() {
     }
   }
 
-  // History: all terminal-status runs, newest-first. Sorted by ended_at
-  // (falling back to started_at for the rare terminal row missing
-  // ended_at) because "most recently finished" is what "newest" means for
-  // a history-of-completed-work view -- queued_at/started_at alone would
-  // put a long-running task above one that just finished a moment ago.
-  const history = state.logs
-    .filter(isTerminal)
-    .sort((a, b) => {
-      const bTime = new Date(b.ended_at || b.started_at || b.queued_at).getTime();
-      const aTime = new Date(a.ended_at || a.started_at || a.queued_at).getTime();
-      return bTime - aTime;
-    });
-
-  els.historyList.innerHTML = "";
-  if (history.length === 0) {
-    const li = document.createElement("li");
-    li.className = "empty-note";
-    li.style.border = "none";
-    li.style.background = "none";
-    li.textContent = "No completed runs yet.";
-    els.historyList.appendChild(li);
-  } else {
-    for (const log of history) {
-      els.historyList.appendChild(renderHistoryRow(log));
-    }
-  }
-
   if (state.lastFetchAt) {
     const timeLabel = state.lastFetchAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     els.lastUpdated.textContent = `last updated ${timeLabel}`;
@@ -255,6 +257,124 @@ function render() {
   } else {
     els.errorBanner.classList.remove("visible");
   }
+}
+
+// De-dupe guard for appending a fetched page of History rows onto
+// historyState.logs. Load More is additive (appends, never replaces), but
+// a naive append risks duplicates if a click ever re-requests an overlapping
+// offset (e.g. a retry after a network blip) or drops rows if the server-side
+// total shifts between clicks (new terminal runs finishing while the user is
+// paging). Using `id` (stable, unique, never reused) as the de-dupe key
+// keeps historyState.logs correct regardless of either scenario.
+function appendHistoryLogs(logs) {
+  for (const log of logs) {
+    if (historyState.ids.has(log.id)) continue;
+    historyState.ids.add(log.id);
+    historyState.logs.push(log);
+  }
+}
+
+// Renders the History list from historyState.logs (already newest-first,
+// per the server's ORDER BY ended_at-coalesced DESC, id DESC) and updates
+// the Load More button's visibility/label/disabled state. Only touches
+// #history-list / #history-load-more -- never state.logs or the Live-view
+// elements, so calling this can never regress Live rendering.
+function renderHistory() {
+  els.historyList.innerHTML = "";
+  if (historyState.logs.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-note";
+    li.style.border = "none";
+    li.style.background = "none";
+    li.textContent = historyState.loading ? "Loading…" : "No completed runs yet.";
+    els.historyList.appendChild(li);
+  } else {
+    for (const log of historyState.logs) {
+      els.historyList.appendChild(renderHistoryRow(log));
+    }
+  }
+
+  const hasMore = historyState.logs.length < historyState.total;
+  if (!historyState.initialized || historyState.logs.length === 0) {
+    els.historyLoadMore.hidden = true;
+  } else if (!hasMore) {
+    els.historyLoadMore.hidden = false;
+    els.historyLoadMore.disabled = true;
+    els.historyLoadMore.textContent = "No more history";
+  } else {
+    els.historyLoadMore.hidden = false;
+    els.historyLoadMore.disabled = historyState.loading;
+    els.historyLoadMore.textContent = historyState.loading ? "Loading…" : "Load More";
+  }
+}
+
+// Shared fetch helper for both the initial History load and each
+// subsequent Load More click. `offset`/`limit` map straight onto the new
+// server-side params added to GET /api/logs (see server/routes/logs.js);
+// `order_by=ended_at` matches the History tab's existing "most recently
+// finished" newest-first sort semantics.
+async function fetchHistoryPage(offset, limit) {
+  const params = new URLSearchParams({
+    status: HISTORY_STATUS_PARAM,
+    order_by: "ended_at",
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/logs?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// Initial History load: the 50 most-recent terminal-status rows (Gabe's
+// spec). Safe to call multiple times (e.g. re-opening the History tab
+// after a full page reload) -- it always resets historyState.logs before
+// loading a fresh first page, so it exactly represents "the current 50
+// most recent" rather than compounding old pages.
+async function loadInitialHistory() {
+  if (historyState.loading) return;
+  historyState.loading = true;
+  historyState.logs = [];
+  historyState.ids = new Set();
+  historyState.total = 0;
+  renderHistory();
+  try {
+    const data = await fetchHistoryPage(0, HISTORY_INITIAL_LIMIT);
+    appendHistoryLogs(Array.isArray(data.logs) ? data.logs : []);
+    historyState.total = Number.isFinite(data.total) ? data.total : historyState.logs.length;
+    historyState.initialized = true;
+  } catch (err) {
+    state.lastError = err.message || String(err);
+  }
+  historyState.loading = false;
+  renderHistory();
+  render();
+}
+
+// "Load More" click handler: fetches the next 25 rows starting at the
+// current historyState.logs.length offset and appends them. Works
+// correctly across repeated clicks (50->75->100->125->...) because the
+// offset is always derived from how many rows are already loaded, not a
+// fixed page counter -- so it stays correct even if appendHistoryLogs()
+// ever has to skip a duplicate.
+async function loadMoreHistory() {
+  if (historyState.loading) return;
+  if (historyState.logs.length >= historyState.total) return;
+  historyState.loading = true;
+  renderHistory();
+  try {
+    const data = await fetchHistoryPage(historyState.logs.length, HISTORY_LOAD_MORE_LIMIT);
+    appendHistoryLogs(Array.isArray(data.logs) ? data.logs : []);
+    historyState.total = Number.isFinite(data.total) ? data.total : historyState.total;
+  } catch (err) {
+    state.lastError = err.message || String(err);
+  }
+  historyState.loading = false;
+  renderHistory();
+  render();
 }
 
 // Re-render only the running-slot elapsed-time text nodes every 5s, without
@@ -275,9 +395,16 @@ function tickQueued() {
   });
 }
 
+// Live view's own poll loop: only ever asks for queued/running rows (the
+// small, currently-active set), completely separate from History's
+// fetchHistoryPage()/loadInitialHistory()/loadMoreHistory() path above.
 async function poll() {
   try {
-    const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/logs?limit=${FETCH_LIMIT}`, {
+    const params = new URLSearchParams({
+      status: LIVE_STATUS_PARAM,
+      limit: String(LIVE_FETCH_LIMIT),
+    });
+    const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/logs?${params.toString()}`, {
       cache: "no-store",
     });
     if (!res.ok) {

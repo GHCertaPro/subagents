@@ -114,27 +114,74 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 
 // GET /api/logs
 // List entries for a future dashboard. Supports:
-//   ?status=running          filter by exact status
-//   ?limit=50                cap result count (default 50, max 500)
-//   ?task_name=foo           filter by exact task_name
+//   ?status=running              filter by exact status
+//   ?status=done,failed,cancelled  comma-separated list filters to ANY of
+//                                   the given statuses (added for the
+//                                   History tab, which needs all three
+//                                   terminal statuses in one call)
+//   ?limit=50                    cap result count (default 50, max 500)
+//   ?offset=0                    skip this many matching rows before
+//                                 taking `limit` (added for real
+//                                 server-side pagination -- see
+//                                 dashboard/app.js's History "Load More")
+//   ?order_by=queued_at|ended_at   sort key (default queued_at, unchanged
+//                                   behavior for existing callers).
+//                                   ended_at orders by
+//                                   COALESCE(ended_at, started_at, queued_at)
+//                                   DESC -- i.e. "most recently finished",
+//                                   matching the History tab's existing
+//                                   newest-first semantics. Both modes add
+//                                   `id DESC` as a secondary sort key so
+//                                   that offset-based pagination is fully
+//                                   deterministic across repeated calls
+//                                   even when many rows share the exact
+//                                   same timestamp (otherwise Postgres does
+//                                   not guarantee stable ordering for tied
+//                                   rows across separate LIMIT/OFFSET
+//                                   queries, which could silently duplicate
+//                                   or drop rows between Load More clicks).
+//   ?task_name=foo               filter by exact task_name
+//
+// Response shape: { count, total, logs }. `count` is the number of rows in
+// this response; `total` is the total number of rows matching the same
+// filters (ignoring limit/offset) -- callers use `offset + count < total`
+// to know whether more pages exist.
 router.get("/", async (req, res) => {
   const { status, task_name } = req.query;
   let limit = parseInt(req.query.limit, 10);
   if (!Number.isFinite(limit) || limit <= 0) limit = 50;
   if (limit > 500) limit = 500;
 
+  let offset = parseInt(req.query.offset, 10);
+  if (!Number.isFinite(offset) || offset < 0) offset = 0;
+
+  const orderByParam = req.query.order_by;
+  if (orderByParam !== undefined && !["queued_at", "ended_at"].includes(orderByParam)) {
+    return res.status(400).json({
+      error: "order_by must be one of: queued_at, ended_at",
+    });
+  }
+  const orderExpr =
+    orderByParam === "ended_at" ? "COALESCE(ended_at, started_at, queued_at)" : "queued_at";
+
   const clauses = [];
   const values = [];
   let i = 1;
 
   if (status !== undefined) {
-    if (!VALID_STATUSES.includes(status)) {
-      return res.status(400).json({
-        error: `status must be one of: ${VALID_STATUSES.join(", ")}`,
-      });
+    const statuses = String(status)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const s of statuses) {
+      if (!VALID_STATUSES.includes(s)) {
+        return res.status(400).json({
+          error: `status must be one of: ${VALID_STATUSES.join(", ")} (comma-separated for multiple)`,
+        });
+      }
     }
-    clauses.push(`status = $${i++}`);
-    values.push(status);
+    clauses.push(`status = ANY($${i++})`);
+    values.push(statuses);
   }
 
   if (task_name !== undefined) {
@@ -143,15 +190,27 @@ router.get("/", async (req, res) => {
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  values.push(limit);
+  const whereValues = values.slice();
+
+  const pageValues = values.slice();
+  pageValues.push(limit, offset);
+  const limitIdx = whereValues.length + 1;
+  const offsetIdx = whereValues.length + 2;
 
   try {
     const pool = getPool();
-    const result = await pool.query(
-      `SELECT * FROM subagent_logs ${where} ORDER BY queued_at DESC LIMIT $${i}`,
-      values
-    );
-    return res.json({ count: result.rowCount, logs: result.rows });
+    const [result, countResult] = await Promise.all([
+      pool.query(
+        `SELECT * FROM subagent_logs ${where} ORDER BY ${orderExpr} DESC, id DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        pageValues
+      ),
+      pool.query(`SELECT COUNT(*)::int AS total FROM subagent_logs ${where}`, whereValues),
+    ]);
+    return res.json({
+      count: result.rowCount,
+      total: countResult.rows[0]?.total ?? 0,
+      logs: result.rows,
+    });
   } catch (err) {
     console.error("[GET /api/logs] error:", err.message);
     return res.status(500).json({ error: "Failed to list log entries." });

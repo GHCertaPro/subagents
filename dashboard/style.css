@@ -330,6 +330,35 @@ section > h2 {
   padding: 10px 0;
 }
 
+/* --- History: "Load More" button (Gabe's request: 50 most recent rows
+   initially, then +25 per click) --- */
+
+.load-more-btn {
+  display: block;
+  margin: 16px auto 0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #0a0a0a;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  border-color: #777;
+  color: #fff;
+}
+
+.load-more-btn:disabled {
+  color: #555;
+  border-color: #333;
+  cursor: default;
+}
+
 .error-banner {
   border: 1px solid #a33;
   background: #200;

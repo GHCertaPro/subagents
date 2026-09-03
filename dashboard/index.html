@@ -37,7 +37,8 @@
 <div id="history-view" hidden>
   <section>
     <h2>History</h2>
-    <ul id="history-list"><!-- variable length, terminal-status runs, rendered by app.js --></ul>
+    <ul id="history-list"><!-- 50 most recent terminal-status runs, then +25 per Load More click, rendered by app.js --></ul>
+    <button type="button" id="history-load-more" class="load-more-btn" hidden>Load More</button>
   </section>
 </div>
 
