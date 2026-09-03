@@ -16,7 +16,7 @@ const VALID_STATUSES = ["queued", "running", "done", "failed", "cancelled"];
 // (status defaults to "queued", started_at omitted) or a task that is
 // starting immediately (pass status: "running", started_at: <iso>).
 router.post("/", requireApiKey, async (req, res) => {
-  const { task_name, status, queued_at, started_at, notes, requested_by, metadata } =
+  const { task_name, status, queued_at, started_at, notes, summary, requested_by, metadata } =
     req.body ?? {};
 
   if (!task_name || typeof task_name !== "string") {
@@ -34,9 +34,9 @@ router.post("/", requireApiKey, async (req, res) => {
     const pool = getPool();
     const result = await pool.query(
       `INSERT INTO subagent_logs
-         (task_name, status, queued_at, started_at, notes, requested_by, metadata)
+         (task_name, status, queued_at, started_at, notes, summary, requested_by, metadata)
        VALUES
-         ($1, $2, COALESCE($3, now()), $4, $5, $6, COALESCE($7, '{}'::jsonb))
+         ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, COALESCE($8, '{}'::jsonb))
        RETURNING *`,
       [
         task_name,
@@ -44,6 +44,7 @@ router.post("/", requireApiKey, async (req, res) => {
         queued_at ?? null,
         started_at ?? null,
         notes ?? null,
+        summary ?? null,
         requested_by ?? null,
         metadata ? JSON.stringify(metadata) : null,
       ]
@@ -64,7 +65,7 @@ router.patch("/:id", requireApiKey, async (req, res) => {
     return res.status(400).json({ error: "id must be a positive integer." });
   }
 
-  const { status, started_at, ended_at, notes, requested_by, metadata } = req.body ?? {};
+  const { status, started_at, ended_at, notes, summary, requested_by, metadata } = req.body ?? {};
 
   if (status !== undefined && !VALID_STATUSES.includes(status)) {
     return res.status(400).json({
@@ -85,6 +86,7 @@ router.patch("/:id", requireApiKey, async (req, res) => {
   if (started_at !== undefined) set("started_at", started_at);
   if (ended_at !== undefined) set("ended_at", ended_at);
   if (notes !== undefined) set("notes", notes);
+  if (summary !== undefined) set("summary", summary);
   if (requested_by !== undefined) set("requested_by", requested_by);
   if (metadata !== undefined) set("metadata", JSON.stringify(metadata));
 

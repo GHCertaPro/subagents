@@ -241,6 +241,52 @@ section > h2 {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px 16px;
+  /* Anchor for the absolutely-positioned .history-tooltip popup below --
+     the tooltip is taken out of normal flow entirely, so it never affects
+     this row's (or any sibling row's) height/position. */
+  position: relative;
+}
+
+/* Rows that actually have a summary get a subtle cue (dotted underline on
+   the task name) so it's discoverable that hovering does something --
+   rows with no summary yet (older data, no backfill) get no hover affordance
+   at all since .history-tooltip is never appended for them. */
+#history-list li.has-summary .task-name {
+  border-bottom: 1px dotted #666;
+  cursor: help;
+}
+
+/* Hover/tooltip popup showing the short result summary. Absolutely
+   positioned relative to the row (li), and toggled via opacity+visibility
+   (never display/height), so it never reserves layout space and never
+   shifts the page when it appears or disappears -- shown purely on
+   mouseover via the :hover pseudo-class, no click/JS listener needed. */
+.history-tooltip {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 100%;
+  margin-bottom: 8px;
+  background: #1a1a1a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#history-list li.has-summary:hover .history-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 #history-list li .task-name {

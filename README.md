@@ -79,6 +79,7 @@ See `server/migrations/001_create_subagent_logs.sql`. Summary of the
 | `ended_at`     | timestamptz   | nullable — filled in on completion (success or failure)             |
 | `status`       | text          | `queued` \| `running` \| `done` \| `failed` \| `cancelled`           |
 | `notes`        | text          | free-text summary/result/error notes                                |
+| `summary`      | text          | nullable, short (1-2 sentence) result blurb for hover-tooltip UI     |
 | `requested_by` | text          | which agent/session/requester spawned this task, if known           |
 | `metadata`     | jsonb         | free-form bag for anything else (model used, token counts, links)   |
 | `created_at`   | timestamptz   | row creation time                                                   |
@@ -103,7 +104,19 @@ curl -X POST http://localhost:3000/api/logs \
 
 Body fields: `task_name` (required, string), `status` (optional, one of
 `queued|running|done|failed|cancelled`, defaults to `queued`), `queued_at`,
-`started_at`, `notes`, `requested_by`, `metadata` (all optional).
+`started_at`, `notes`, `summary`, `requested_by`, `metadata` (all optional).
+
+**`notes` vs `summary`:** `notes` is the existing free-text field for full
+detail (commit hashes, pass/fail counts, edge cases, deploy verification) --
+keep populating it as before. `summary` is a newer, separate, optional field
+intended to stay SHORT (a sentence or two) -- it's what the dashboard's
+History-tab hover-tooltip popup displays. **Completion PATCH calls going
+forward should populate both** `notes` (full detail) and `summary` (short
+blurb) when a task finishes. `summary` is nullable/optional purely for
+backward compatibility -- existing callers that only send `notes` keep
+working unchanged, but will simply show no tooltip on that row (rows with
+no `summary` render no popup at all; not backfilled, per this project's
+standing "dashboard starts clean" rule).
 
 ### `PATCH /api/logs/:id`
 
@@ -115,7 +128,7 @@ updated.
 curl -X PATCH http://localhost:3000/api/logs/1 \
   -H "Content-Type: application/json" \
   -H "x-api-key: $API_KEY" \
-  -d '{"status": "done", "ended_at": "2026-08-31T21:00:00Z", "notes": "completed successfully"}'
+  -d '{"status": "done", "ended_at": "2026-08-31T21:00:00Z", "notes": "completed successfully, commit abc123, tests 10/10 pass", "summary": "Shipped and verified live."}'
 ```
 
 ### `GET /api/logs`
@@ -144,6 +157,7 @@ server/
   migrate.js                migration runner
   migrations/
     001_create_subagent_logs.sql
+    002_add_summary_to_subagent_logs.sql
   routes/
     logs.js                POST/PATCH/GET /api/logs
 dashboard/                 Static frontend (see dashboard/README.md)

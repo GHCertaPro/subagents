@@ -145,6 +145,28 @@ function renderHistoryRow(log) {
     <span class="history-times">started ${escapeHtml(formatTimestamp(log.started_at))} → ended ${escapeHtml(formatTimestamp(log.ended_at))}</span>
   `;
   li.dataset.id = log.id;
+
+  // Hover/tooltip popup with the short result summary (Gabe's request:
+  // "hover over a past subagent in history it should display the summary
+  // in a popup"). Uses the dedicated `summary` column (short, clean
+  // blurb), NOT `notes` (which in practice holds long multi-sentence
+  // full-detail reports -- too dense for a glanceable hover popup). Rows
+  // logged before `summary` existed simply have it as null/empty -- per
+  // the standing no-backfill rule, those rows get no tooltip at all
+  // rather than a placeholder pulled from notes or anything synthesized.
+  //
+  // Pure CSS hover popup (:hover + a positioned .tooltip child), so it
+  // never shifts layout when shown/hidden: the tooltip is
+  // absolutely-positioned and only toggles opacity/visibility, never
+  // display, so it takes no space in the row's flex flow either way.
+  if (log.summary && String(log.summary).trim() !== "") {
+    li.classList.add("has-summary");
+    const tooltip = document.createElement("div");
+    tooltip.className = "history-tooltip";
+    tooltip.textContent = String(log.summary);
+    li.appendChild(tooltip);
+  }
+
   return li;
 }
 
