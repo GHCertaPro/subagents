@@ -198,9 +198,11 @@ function renderHistoryRow(log) {
 // `notes` populated. Not an LLM call -- a simple, deterministic
 // heuristic: take the text up to the first sentence-ending punctuation
 // (. ! ?) if that occurs at a reasonable length, otherwise hard-truncate
-// to ~140 chars at the nearest word boundary with an ellipsis. Returns
-// "" (falsy) when neither field has usable content, so callers can skip
-// adding a tooltip/affordance entirely.
+// to ~140 chars at the nearest word boundary with an ellipsis. Always
+// returns a non-empty, human-readable string -- when neither `summary`
+// nor `notes` has usable content (e.g. very old rows), falls back to a
+// task-name-based placeholder sentence rather than leaving the hover
+// popup blank/missing.
 function briefSummaryFor(log) {
   const source =
     log.summary && String(log.summary).trim() !== ""
@@ -208,7 +210,16 @@ function briefSummaryFor(log) {
       : log.notes && String(log.notes).trim() !== ""
         ? String(log.notes).trim()
         : "";
-  if (!source) return "";
+  if (!source) {
+    // Neither `summary` nor `notes` has any content -- rather than
+    // silently showing no hover popup at all (which reads as broken to a
+    // user who expects every row to be hoverable), fall back to a plain
+    // task-name-based sentence so old/sparse rows still get *something*
+    // readable on hover. formatTaskName() already turns underscores into
+    // spaces for display.
+    const name = formatTaskName(log.task_name);
+    return name ? `${name} — no summary recorded for this run.` : "No summary recorded for this run.";
+  }
 
   const MAX_LEN = 140;
 
