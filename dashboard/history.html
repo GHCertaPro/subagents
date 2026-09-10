@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard — History</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+</head>
+<body>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
+  <div class="meta">
+    <span id="last-updated">&nbsp;</span>
+  </div>
+</header>
+
+<!--
+  Standalone "History" page, served at "/history" (see server/index.js).
+  Shows only completed ("done") and failed (and cancelled) past runs --
+  never the currently running/queued set, which now lives solely on the
+  Live homepage (dashboard/index.html, served at "/").
+-->
+<nav class="top-nav" aria-label="Dashboard views">
+  <a href="/" class="nav-link">Live</a>
+  <a href="/history" class="nav-link active" aria-current="page">History</a>
+</nav>
+
+<div class="error-banner" id="error-banner"></div>
+
+<div id="history-view">
+  <section>
+    <h2>History</h2>
+    <ul id="history-list"><!-- 50 most recent terminal-status runs, then +25 per Load More click, rendered by app.js --></ul>
+    <button type="button" id="history-load-more" class="load-more-btn" hidden>Load More</button>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

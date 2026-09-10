@@ -43,6 +43,18 @@ function main() {
 
   app.use("/api/logs", logsRouter);
 
+  // Explicit clean-URL route for the History page (dashboard/history.html).
+  // Registered BEFORE express.static so it takes priority over any static
+  // file resolution for this exact path; static still serves
+  // /history.html directly (and everything else in dashboard/) unchanged.
+  // This is the only backend routing change needed for the Live/History
+  // page split -- "/" continues to fall through to the static index.html
+  // (the Live page, and the app's homepage/default route) via the
+  // catch-all below, unchanged from before.
+  app.get("/history", (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, "history.html"));
+  });
+
   // Serve the static dashboard (dashboard/index.html etc.) from the same
   // origin/port as the API, so the whole thing runs behind one Railway
   // URL instead of needing a separate GitHub Pages deploy. The dashboard's
@@ -54,6 +66,9 @@ function main() {
     if (req.path.startsWith("/api/") || req.path === "/health") {
       return res.status(404).json({ error: "Not found." });
     }
+    // Homepage/default route ("/") and any unmatched path falls through to
+    // the Live page (index.html) -- History now only lives at the
+    // explicit /history route registered above.
     res.sendFile(path.join(DASHBOARD_DIR, "index.html"));
   });
 

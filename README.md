@@ -168,9 +168,17 @@ package.json
 ## Dashboard (frontend)
 
 `dashboard/` contains a static (no build step) HTML/CSS/vanilla-JS
-dashboard that polls `GET /api/logs` and shows live subagent progress —
-a fixed 3-slot "Currently Running" grid plus a variable-length "Queued"
-list, black background / white text. It's a read-only consumer of this
-API and never needs the write-auth `API_KEY`. See
-[`dashboard/README.md`](./dashboard/README.md) for how to serve it and
-point it at a backend URL.
+dashboard, served as **two separate pages** by this same Express server:
+
+- `/` (homepage/default route) — **Live**: a fixed 3-slot "Currently
+  Running" grid plus a variable-length "Queued" list, polling
+  `GET /api/logs?status=queued,running` every 15s.
+- `/history` — **History**: completed (`done`) and failed/cancelled past
+  runs only, loaded once (no polling) with a "Load More" pagination
+  button.
+
+Both pages share a simple nav bar (Live / History links) for moving
+between them. Both are a read-only consumer of `GET /api/logs` and never
+need the write-auth `API_KEY`. See
+[`dashboard/README.md`](./dashboard/README.md) for how to serve it
+standalone and point it at a backend URL.

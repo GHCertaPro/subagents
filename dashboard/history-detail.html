@@ -19,12 +19,12 @@
   navigates to via a normal same-tab <a href>/location.href change. Shows
   the complete `notes`/`summary` text for one subagent_logs row, fetched
   from GET /api/logs/:id (see server/routes/logs.js). Loaded standalone --
-  no dependency on dashboard/app.js's History-tab state, so this page works
+  no dependency on dashboard/app.js's History-page state, so this page works
   correctly whether it's reached from a History row click, a direct link,
   or a page reload.
 -->
 <div id="detail-view">
-  <a href="index.html?view=history" class="back-link">&larr; Back to History</a>
+  <a href="/history" class="back-link">&larr; Back to History</a>
 
   <div id="detail-loading" class="empty-note">Loading…</div>
   <div id="detail-error" class="error-banner"></div>

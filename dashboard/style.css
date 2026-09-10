@@ -74,32 +74,38 @@ header h1:hover ~ .meta #last-updated {
   opacity: 1;
 }
 
-/* --- Live/History view toggle --- */
+/* --- Live/History top nav ---
+   Live ("/") and History ("/history") are now two separate real pages
+   (see server/index.js), not a client-side toggle on one page. This is
+   a plain <nav> of two links, styled to look like the tab bar the old
+   .view-toggle buttons used to be. */
 
-.view-toggle {
+.top-nav {
   display: flex;
   gap: 8px;
+  margin-bottom: 24px;
 }
 
-.toggle-btn {
+.nav-link {
   font-family: inherit;
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  text-decoration: none;
   background: #0a0a0a;
   color: #999;
   border: 1px solid #333;
   border-radius: 6px;
   padding: 8px 16px;
-  cursor: pointer;
+  display: inline-block;
 }
 
-.toggle-btn:hover {
+.nav-link:hover {
   border-color: #555;
   color: #ccc;
 }
 
-.toggle-btn.active {
+.nav-link.active {
   background: #fff;
   color: #000;
   border-color: #fff;

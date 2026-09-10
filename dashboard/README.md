@@ -5,22 +5,52 @@ HTML/CSS/vanilla JS — no build step, no framework, no dependencies. It is a
 **read-only consumer** of `GET /api/logs`; it never calls `POST`/`PATCH` and
 never needs the backend's `API_KEY`.
 
+This is now **two separate pages**, not a single-page client-side toggle:
+
+- **`index.html`, served at `/`** — the **Live** page, and the app's
+  homepage/default route. Shows ONLY currently running + queued
+  subagents.
+- **`history.html`, served at `/history`** — the **History** page. Shows
+  ONLY completed (`done`) and failed/cancelled past runs.
+
+Both pages share the same `<nav>` (Live / History links) so you can move
+between them, and both load the same `dashboard/app.js`, which gates its
+two init paths on which page's unique DOM elements are present (see the
+file-level comment at the top of `app.js`). `server/index.js` is what
+maps the `/history` URL to `history.html` (`/` and everything else still
+falls through to `index.html`, unchanged).
+
 ## What it shows
+
+### Live (`/`)
 
 - **Currently Running** — a fixed grid of exactly **3 slots**, mirroring
   this project's real max-3-concurrent-subagent cap. Each populated slot
   shows a task with `status: 'running'` (i.e. `started_at` set,
-  `ended_at` null) and how long it's been running, updating every second.
+  `ended_at` null) and how long it's been running, updating every 5s.
   Empty slots render as a styled "No task running" placeholder — the
   layout is always exactly 3 slots, never fewer/more.
 - **Queued** — a variable-length list below it, one row per task with
   `status: 'queued'` (`started_at` still null), showing when it was
-  queued and how long it's been waiting, also updating every second.
+  queued and how long it's been waiting, updating once a minute.
 
-The page polls `GET /api/logs?limit=50` every 4 seconds and re-renders both
-sections from the fresh response. Elapsed-time text is recomputed from the
-in-memory ISO timestamps every second via `setInterval`, independent of the
-poll cycle, so counters tick smoothly between polls.
+The Live page polls `GET /api/logs?status=queued,running&limit=100` every
+15 seconds and re-renders both sections from the fresh response.
+Elapsed-time text is recomputed from the in-memory ISO timestamps on its
+own `setInterval` timers, independent of the poll cycle, so counters tick
+smoothly between polls.
+
+### History (`/history`)
+
+- The 50 most-recent terminal-status (`done`/`failed`/`cancelled`) runs,
+  newest-first, with a **Load More** button that fetches 25 more at a
+  time via real server-side offset pagination (`GET
+  /api/logs?status=done,failed,cancelled&order_by=ended_at&limit=...&offset=...`).
+  Loaded once when the page opens — no polling timer, since finished runs
+  don't change.
+- Each row shows a brief one-sentence hover tooltip (native `title`
+  attribute) and is clickable through to a full detail page
+  (`history-detail.html?id=<id>`) with the complete notes/summary text.
 
 ## Running it
 

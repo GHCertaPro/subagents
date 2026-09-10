@@ -1,32 +1,38 @@
 // dashboard/app.js
 //
-// Renders one of two views, switched by the Live/History toggle at the
-// top of the page:
-//   - "live": a fixed 3-slot "Currently Running" grid + variable-length
-//     "Queued" list (the original default view)
-//   - "history": the 50 most-recent terminal-status (done/failed/
-//     cancelled) runs, newest-first, with a "Load More" button that
-//     fetches 25 more at a time via real server-side offset pagination.
+// Shared script for the two real, separate dashboard pages:
+//   - dashboard/index.html  ("/")         -- Live: fixed 3-slot "Currently
+//     Running" grid + variable-length "Queued" list. This is the app's
+//     homepage / default route.
+//   - dashboard/history.html ("/history") -- History: the 50 most-recent
+//     terminal-status (done/failed/cancelled) runs, newest-first, with a
+//     "Load More" button that fetches 25 more at a time via real
+//     server-side offset pagination.
 //
-// ARCHITECTURE NOTE (this used to be one shared fetch loop -- it no longer
-// is): Live and History now have their OWN separate fetch paths, because
-// they are fundamentally different concerns:
+// This file is loaded by BOTH pages (same <script src="app.js">, no build
+// step) but each page only has the DOM elements for its own view, so the
+// two code paths below are gated on `document.getElementById(...)` checks
+// for the elements that are unique to each page -- initLive() only runs
+// on index.html (where #running-grid/#queued-list exist), initHistory()
+// only runs on history.html (where #history-list exists). There used to
+// be a single-page client-side view-toggle (`state.view`, `setView()`)
+// switching between two hidden/unhidden <div>s on one URL; that's gone
+// now that Live and History are two distinct pages/routes served by
+// server/index.js -- navigation between them is just the <nav> links in
+// each page's markup doing normal full page loads.
+//
+// ARCHITECTURE NOTE (unchanged from before the page split): Live and
+// History have their OWN separate fetch paths, because they are
+// fundamentally different concerns:
 //   - Live's job is a cheap, small, recurring poll (every 15s) that only
 //     ever needs the *current* queued+running rows -- there are at most a
-//     handful of those at once, so `poll()` below now asks the API for
+//     handful of those at once, so `poll()` below asks the API for
 //     exactly `?status=queued,running` and nothing else.
 //   - History's job is a one-shot "give me N most recent finished rows"
 //     load, followed by on-demand "give me the next 25" loads triggered
 //     by the Load More button -- there is no reason to re-fetch this on a
 //     15s timer, and re-fetching would also fight with the pagination
 //     offset the user has scrolled through.
-// Previously FETCH_LIMIT was bumped from 50 to 200 specifically so the one
-// shared poll would carry enough terminal-status rows to also populate
-// History from state.logs. That workaround is gone now that History has
-// its own real limit/offset-backed fetch path (see loadInitialHistory /
-// loadMoreHistory below and the new offset support in
-// server/routes/logs.js) -- so the live poll's limit is back down to a
-// small number, and it no longer fetches terminal rows at all.
 //
 // Elapsed-time counters re-render once per minute from the ISO timestamps
 // already in memory (no extra network calls needed for the ticking).
@@ -45,12 +51,12 @@ const state = {
   logs: [],
   lastFetchAt: null,
   lastError: null,
-  view: "live", // "live" | "history"
 };
 
-// Separate state for the History tab's own paginated fetch path. Kept
-// distinct from `state` (which is the live-poll-only array now) so the
-// two fetch loops never step on each other.
+// Separate state for the History page's own paginated fetch path. Kept
+// distinct from `state` (which is the live-poll-only array) so the two
+// fetch loops never step on each other, even though they no longer share
+// a page.
 const historyState = {
   logs: [], // accumulated rows, newest-first, across all loaded pages
   ids: new Set(), // de-dupe guard -- see appendHistoryLogs()
@@ -64,36 +70,9 @@ const els = {
   errorBanner: document.getElementById("error-banner"),
   runningGrid: document.getElementById("running-grid"),
   queuedList: document.getElementById("queued-list"),
-  liveView: document.getElementById("live-view"),
-  historyView: document.getElementById("history-view"),
   historyList: document.getElementById("history-list"),
   historyLoadMore: document.getElementById("history-load-more"),
-  viewBtnLive: document.getElementById("view-btn-live"),
-  viewBtnHistory: document.getElementById("view-btn-history"),
 };
-
-function setView(view) {
-  state.view = view;
-  const isHistory = view === "history";
-  els.liveView.hidden = isHistory;
-  els.historyView.hidden = !isHistory;
-  els.viewBtnLive.classList.toggle("active", !isHistory);
-  els.viewBtnHistory.classList.toggle("active", isHistory);
-  els.viewBtnLive.setAttribute("aria-selected", String(!isHistory));
-  els.viewBtnHistory.setAttribute("aria-selected", String(isHistory));
-  if (isHistory && !historyState.initialized) {
-    // Lazy first load: History's own fetch path only kicks in once the
-    // tab is actually opened, not on initial page load alongside Live.
-    loadInitialHistory();
-  } else if (isHistory) {
-    renderHistory();
-  }
-  render();
-}
-
-els.viewBtnLive.addEventListener("click", () => setView("live"));
-els.viewBtnHistory.addEventListener("click", () => setView("history"));
-els.historyLoadMore.addEventListener("click", () => loadMoreHistory());
 
 function formatElapsed(fromIso) {
   if (!fromIso) return "0s";
@@ -179,11 +158,10 @@ function renderHistoryRow(log) {
   //
   // Tier 1, "brief one-sentence summary, on hover": uses the native
   // `title` attribute (simplest reliable cross-browser tooltip, no extra
-  // markup/CSS/JS needed) rather than the old custom CSS-hover popup.
-  // Derived from whichever of `summary`/`notes` has content (preferring
-  // `summary` since it's already meant to be short) via
-  // briefSummaryFor() below -- first-sentence-or-~140-chars truncation,
-  // no LLM call.
+  // markup/CSS/JS needed) rather than a custom CSS-hover popup. Derived
+  // from whichever of `summary`/`notes` has content (preferring `summary`
+  // since it's already meant to be short) via briefSummaryFor() below --
+  // first-sentence-or-~140-chars truncation, no LLM call.
   //
   // Tier 2, "full summary, opens in a new PAGE on click": the whole row
   // is a same-tab navigation to history-detail.html?id=<id>, which
@@ -205,7 +183,7 @@ function renderHistoryRow(log) {
   // assignment rather than `window.open(...)` or an <a target="_blank">).
   // Uses a real relative page (history-detail.html) alongside this one,
   // matching the existing no-build-step multi-static-file pattern already
-  // used for index.html/config.js/app.js/style.css.
+  // used for index.html/history.html/config.js/app.js/style.css.
   li.addEventListener("click", () => {
     window.location.href = `history-detail.html?id=${encodeURIComponent(log.id)}`;
   });
@@ -272,7 +250,7 @@ function formatTaskName(taskName) {
   return String(taskName).replace(/_/g, " ");
 }
 
-function render() {
+function renderLive() {
   const running = state.logs.filter(isRunning).sort((a, b) => new Date(a.started_at) - new Date(b.started_at));
   const queued = state.logs.filter(isQueued).sort((a, b) => new Date(a.queued_at) - new Date(b.queued_at));
 
@@ -297,16 +275,18 @@ function render() {
     }
   }
 
-  if (state.lastFetchAt) {
+  if (state.lastFetchAt && els.lastUpdated) {
     const timeLabel = state.lastFetchAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     els.lastUpdated.textContent = `last updated ${timeLabel}`;
   }
 
-  if (state.lastError) {
-    els.errorBanner.textContent = `Error fetching logs: ${state.lastError}`;
-    els.errorBanner.classList.add("visible");
-  } else {
-    els.errorBanner.classList.remove("visible");
+  if (els.errorBanner) {
+    if (state.lastError) {
+      els.errorBanner.textContent = `Error fetching logs: ${state.lastError}`;
+      els.errorBanner.classList.add("visible");
+    } else {
+      els.errorBanner.classList.remove("visible");
+    }
   }
 }
 
@@ -327,9 +307,7 @@ function appendHistoryLogs(logs) {
 
 // Renders the History list from historyState.logs (already newest-first,
 // per the server's ORDER BY ended_at-coalesced DESC, id DESC) and updates
-// the Load More button's visibility/label/disabled state. Only touches
-// #history-list / #history-load-more -- never state.logs or the Live-view
-// elements, so calling this can never regress Live rendering.
+// the Load More button's visibility/label/disabled state.
 function renderHistory() {
   els.historyList.innerHTML = "";
   if (historyState.logs.length === 0) {
@@ -357,13 +335,22 @@ function renderHistory() {
     els.historyLoadMore.disabled = historyState.loading;
     els.historyLoadMore.textContent = historyState.loading ? "Loading…" : "Load More";
   }
+
+  if (els.errorBanner) {
+    if (state.lastError) {
+      els.errorBanner.textContent = `Error fetching logs: ${state.lastError}`;
+      els.errorBanner.classList.add("visible");
+    } else {
+      els.errorBanner.classList.remove("visible");
+    }
+  }
 }
 
 // Shared fetch helper for both the initial History load and each
-// subsequent Load More click. `offset`/`limit` map straight onto the new
-// server-side params added to GET /api/logs (see server/routes/logs.js);
-// `order_by=ended_at` matches the History tab's existing "most recently
-// finished" newest-first sort semantics.
+// subsequent Load More click. `offset`/`limit` map straight onto the
+// server-side params supported by GET /api/logs (see
+// server/routes/logs.js); `order_by=ended_at` matches the History page's
+// "most recently finished" newest-first sort semantics.
 async function fetchHistoryPage(offset, limit) {
   const params = new URLSearchParams({
     status: HISTORY_STATUS_PARAM,
@@ -381,10 +368,7 @@ async function fetchHistoryPage(offset, limit) {
 }
 
 // Initial History load: the 50 most-recent terminal-status rows (Gabe's
-// spec). Safe to call multiple times (e.g. re-opening the History tab
-// after a full page reload) -- it always resets historyState.logs before
-// loading a fresh first page, so it exactly represents "the current 50
-// most recent" rather than compounding old pages.
+// spec).
 async function loadInitialHistory() {
   if (historyState.loading) return;
   historyState.loading = true;
@@ -397,12 +381,12 @@ async function loadInitialHistory() {
     appendHistoryLogs(Array.isArray(data.logs) ? data.logs : []);
     historyState.total = Number.isFinite(data.total) ? data.total : historyState.logs.length;
     historyState.initialized = true;
+    state.lastError = null;
   } catch (err) {
     state.lastError = err.message || String(err);
   }
   historyState.loading = false;
   renderHistory();
-  render();
 }
 
 // "Load More" click handler: fetches the next 25 rows starting at the
@@ -420,12 +404,12 @@ async function loadMoreHistory() {
     const data = await fetchHistoryPage(historyState.logs.length, HISTORY_LOAD_MORE_LIMIT);
     appendHistoryLogs(Array.isArray(data.logs) ? data.logs : []);
     historyState.total = Number.isFinite(data.total) ? data.total : historyState.total;
+    state.lastError = null;
   } catch (err) {
     state.lastError = err.message || String(err);
   }
   historyState.loading = false;
   renderHistory();
-  render();
 }
 
 // Re-render only the running-slot elapsed-time text nodes every 5s, without
@@ -446,7 +430,7 @@ function tickQueued() {
   });
 }
 
-// Live view's own poll loop: only ever asks for queued/running rows (the
+// Live page's own poll loop: only ever asks for queued/running rows (the
 // small, currently-active set), completely separate from History's
 // fetchHistoryPage()/loadInitialHistory()/loadMoreHistory() path above.
 async function poll() {
@@ -468,22 +452,27 @@ async function poll() {
   } catch (err) {
     state.lastError = err.message || String(err);
   }
-  render();
+  renderLive();
 }
 
-poll();
-setInterval(poll, POLL_INTERVAL_MS);
-setInterval(tickRunning, RUNNING_TICK_INTERVAL_MS);
-setInterval(tickQueued, TICK_INTERVAL_MS);
+// --- Page init: gated on which page's unique DOM elements are present ---
+// (see the file-level comment above for why one shared app.js is loaded by
+// both pages instead of splitting into two files).
 
-// Honor `?view=history` on initial page load so the detail page's
-// "Back to History" link (history-detail.html -> index.html?view=history)
-// lands the user back on the History tab instead of defaulting to Live.
-// Purely additive -- normal loads with no `view` param are completely
-// unaffected and keep defaulting to "live" as before.
-(function applyInitialViewFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("view") === "history") {
-    setView("history");
-  }
-})();
+function initLive() {
+  poll();
+  setInterval(poll, POLL_INTERVAL_MS);
+  setInterval(tickRunning, RUNNING_TICK_INTERVAL_MS);
+  setInterval(tickQueued, TICK_INTERVAL_MS);
+}
+
+function initHistory() {
+  els.historyLoadMore.addEventListener("click", () => loadMoreHistory());
+  loadInitialHistory();
+}
+
+if (els.runningGrid && els.queuedList) {
+  initLive();
+} else if (els.historyList) {
+  initHistory();
+}
