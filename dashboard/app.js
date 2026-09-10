@@ -175,30 +175,81 @@ function renderHistoryRow(log) {
   `;
   li.dataset.id = log.id;
 
-  // Hover/tooltip popup with the short result summary (Gabe's request:
-  // "hover over a past subagent in history it should display the summary
-  // in a popup"). Uses the dedicated `summary` column (short, clean
-  // blurb), NOT `notes` (which in practice holds long multi-sentence
-  // full-detail reports -- too dense for a glanceable hover popup). Rows
-  // logged before `summary` existed simply have it as null/empty -- per
-  // the standing no-backfill rule, those rows get no tooltip at all
-  // rather than a placeholder pulled from notes or anything synthesized.
+  // --- Two-tier history detail (Gabe's request) ---
   //
-  // Pure CSS hover popup (:hover + a positioned .tooltip child), so it
-  // never shifts layout when shown/hidden: the tooltip is
-  // absolutely-positioned and only toggles opacity/visibility, never
-  // display, so it takes no space in the row's flex flow either way.
-  if (log.summary && String(log.summary).trim() !== "") {
+  // Tier 1, "brief one-sentence summary, on hover": uses the native
+  // `title` attribute (simplest reliable cross-browser tooltip, no extra
+  // markup/CSS/JS needed) rather than the old custom CSS-hover popup.
+  // Derived from whichever of `summary`/`notes` has content (preferring
+  // `summary` since it's already meant to be short) via
+  // briefSummaryFor() below -- first-sentence-or-~140-chars truncation,
+  // no LLM call.
+  //
+  // Tier 2, "full summary, opens in a new PAGE on click": the whole row
+  // is a same-tab navigation to history-detail.html?id=<id>, which
+  // fetches GET /api/logs/:id and renders the complete notes/summary
+  // text. Navigation is done via `window.location.href = ...` (see the
+  // click listener below) -- explicitly NOT `window.open(...)` and NOT an
+  // `<a target="_blank">` -- so it replaces the current tab's page
+  // exactly like clicking a normal same-tab link would.
+  const brief = briefSummaryFor(log);
+  if (brief) {
+    li.title = brief;
     li.classList.add("has-summary");
-    const tooltip = document.createElement("div");
-    tooltip.className = "history-tooltip";
-    tooltip.textContent = String(log.summary);
-    li.appendChild(tooltip);
   }
+  li.classList.add("history-row-link");
+  li.dataset.id = log.id;
+
+  // Click handler: same-tab navigation to the full-detail page (Gabe's
+  // "option two" -- NOT a new browser tab, so plain `location.href`
+  // assignment rather than `window.open(...)` or an <a target="_blank">).
+  // Uses a real relative page (history-detail.html) alongside this one,
+  // matching the existing no-build-step multi-static-file pattern already
+  // used for index.html/config.js/app.js/style.css.
+  li.addEventListener("click", () => {
+    window.location.href = `history-detail.html?id=${encodeURIComponent(log.id)}`;
+  });
 
   return li;
 }
 
+// Derives a short, glanceable one-sentence hover summary for a History
+// row. Prefers `summary` (already meant to be short per the DB
+// migration's intent) and falls back to `notes` (the long full-detail
+// writeup) when no `summary` is set, since some rows may only ever get
+// `notes` populated. Not an LLM call -- a simple, deterministic
+// heuristic: take the text up to the first sentence-ending punctuation
+// (. ! ?) if that occurs at a reasonable length, otherwise hard-truncate
+// to ~140 chars at the nearest word boundary with an ellipsis. Returns
+// "" (falsy) when neither field has usable content, so callers can skip
+// adding a tooltip/affordance entirely.
+function briefSummaryFor(log) {
+  const source =
+    log.summary && String(log.summary).trim() !== ""
+      ? String(log.summary).trim()
+      : log.notes && String(log.notes).trim() !== ""
+        ? String(log.notes).trim()
+        : "";
+  if (!source) return "";
+
+  const MAX_LEN = 140;
+
+  // Prefer the first sentence if it ends reasonably early -- reads more
+  // naturally than a mid-thought truncation for well-formed prose.
+  const sentenceMatch = source.match(/^[\s\S]*?[.!?](?=\s|$)/);
+  if (sentenceMatch && sentenceMatch[0].trim().length > 0 && sentenceMatch[0].length <= MAX_LEN) {
+    return sentenceMatch[0].trim();
+  }
+
+  if (source.length <= MAX_LEN) return source;
+
+  // Hard-truncate at the nearest word boundary at/before MAX_LEN, then
+  // append an ellipsis, so we don't cut a word in half.
+  let cut = source.slice(0, MAX_LEN);
+  const lastSpace = cut.lastIndexOf(" ");
+  if (lastSpace > 0) cut = cut.slice(0, lastSpace);
+  return `${cut.trim()}…`;
+}
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -424,3 +475,15 @@ poll();
 setInterval(poll, POLL_INTERVAL_MS);
 setInterval(tickRunning, RUNNING_TICK_INTERVAL_MS);
 setInterval(tickQueued, TICK_INTERVAL_MS);
+
+// Honor `?view=history` on initial page load so the detail page's
+// "Back to History" link (history-detail.html -> index.html?view=history)
+// lands the user back on the History tab instead of defaulting to Live.
+// Purely additive -- normal loads with no `view` param are completely
+// unaffected and keep defaulting to "live" as before.
+(function applyInitialViewFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("view") === "history") {
+    setView("history");
+  }
+})();

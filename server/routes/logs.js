@@ -217,4 +217,32 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/logs/:id
+// Single-row fetch, used by the dashboard's History detail view (the
+// "full summary" click-through page) to load the complete notes/summary
+// text for one row. Unauthenticated, same as GET /api/logs -- read-only.
+// The list endpoint already returns every column for rows it includes,
+// so this route exists purely so the detail view can load a row directly
+// (e.g. a bookmarked/shared #/history/:id link, or a row from an older
+// page the client hasn't fetched) without re-fetching a whole history
+// page just to find one id.
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({ error: "id must be a positive integer." });
+  }
+
+  try {
+    const pool = getPool();
+    const result = await pool.query(`SELECT * FROM subagent_logs WHERE id = $1`, [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Log entry not found." });
+    }
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[GET /api/logs/:id] error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch log entry." });
+  }
+});
+
 export default router;

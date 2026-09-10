@@ -247,46 +247,23 @@ section > h2 {
   position: relative;
 }
 
-/* Rows that actually have a summary get a subtle cue (dotted underline on
-   the task name) so it's discoverable that hovering does something --
-   rows with no summary yet (older data, no backfill) get no hover affordance
-   at all since .history-tooltip is never appended for them. */
+/* Whole row is clickable (Gabe's "option two": click opens the full
+   summary as a same-tab page navigation, see app.js's renderHistoryRow
+   click listener) -- cursor + hover affordance make that discoverable.
+   Rows that also have a brief hover summary (native `title` attribute,
+   Gabe's "option one") get a dotted underline on the task name as an
+   extra discoverability cue for the hover tooltip specifically. */
+#history-list li.history-row-link {
+  cursor: pointer;
+}
+
+#history-list li.history-row-link:hover {
+  border-color: #666;
+  background: #111;
+}
+
 #history-list li.has-summary .task-name {
   border-bottom: 1px dotted #666;
-  cursor: help;
-}
-
-/* Hover/tooltip popup showing the short result summary. Absolutely
-   positioned relative to the row (li), and toggled via opacity+visibility
-   (never display/height), so it never reserves layout space and never
-   shifts the page when it appears or disappears -- shown purely on
-   mouseover via the :hover pseudo-class, no click/JS listener needed. */
-.history-tooltip {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 100%;
-  margin-bottom: 8px;
-  background: #1a1a1a;
-  color: #eee;
-  border: 1px solid #555;
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  white-space: normal;
-  word-break: break-word;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease;
-  z-index: 10;
-  pointer-events: none;
-}
-
-#history-list li.has-summary:hover .history-tooltip {
-  opacity: 1;
-  visibility: visible;
 }
 
 #history-list li .task-name {
@@ -377,4 +354,100 @@ footer {
   color: #555;
   font-size: 0.75rem;
   margin-top: 40px;
+}
+
+/* --- History detail page (dashboard/history-detail.html) --- */
+
+#detail-view {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.back-link {
+  display: inline-block;
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.85rem;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 14px;
+  margin-bottom: 24px;
+}
+
+.back-link:hover {
+  border-color: #777;
+  color: #fff;
+}
+
+.detail-header-section h2 {
+  margin: 0 0 10px;
+  font-size: 1.3rem;
+}
+
+.detail-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.detail-meta-row .status-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  color: #ccc;
+}
+
+.status-badge.status-done {
+  color: #b7ffb7;
+  border-color: #2f6b2f;
+}
+
+.status-badge.status-failed {
+  color: #ffb3b3;
+  border-color: #6b2f2f;
+}
+
+.status-badge.status-cancelled {
+  color: #ffd479;
+  border-color: #6b5a2f;
+}
+
+.detail-requested-by {
+  color: #888;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+#detail-view section {
+  border-top: 1px solid #333;
+  padding-top: 20px;
+}
+
+#detail-view h3 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ccc;
+  margin: 0 0 12px;
+}
+
+/* Preserves line breaks from the raw notes/summary text (the ask's
+   "at minimum preserve line breaks") without any manual <br> splitting in
+   JS -- textContent is set once in history-detail.js and this handles
+   all the wrapping/whitespace display. */
+.detail-text-block {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  font-size: 0.9rem;
+  color: #eee;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
 }

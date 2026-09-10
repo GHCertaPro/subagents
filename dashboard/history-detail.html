@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard — Run Detail</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+</head>
+<body>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
+</header>
+
+<!--
+  Full-summary detail view (Gabe's "option two"): a real separate page
+  (not a modal, not a new tab) that a History row's click handler
+  navigates to via a normal same-tab <a href>/location.href change. Shows
+  the complete `notes`/`summary` text for one subagent_logs row, fetched
+  from GET /api/logs/:id (see server/routes/logs.js). Loaded standalone --
+  no dependency on dashboard/app.js's History-tab state, so this page works
+  correctly whether it's reached from a History row click, a direct link,
+  or a page reload.
+-->
+<div id="detail-view">
+  <a href="index.html?view=history" class="back-link">&larr; Back to History</a>
+
+  <div id="detail-loading" class="empty-note">Loading…</div>
+  <div id="detail-error" class="error-banner"></div>
+
+  <div id="detail-content" hidden>
+    <section class="detail-header-section">
+      <h2 id="detail-task-name"></h2>
+      <div class="detail-meta-row">
+        <span id="detail-status-badge" class="status-badge"></span>
+        <span id="detail-times" class="history-times"></span>
+      </div>
+      <div id="detail-requested-by" class="detail-requested-by"></div>
+    </section>
+
+    <section id="detail-summary-section" hidden>
+      <h3>Summary</h3>
+      <div id="detail-summary-text" class="detail-text-block"></div>
+    </section>
+
+    <section id="detail-notes-section" hidden>
+      <h3>Full Notes</h3>
+      <div id="detail-notes-text" class="detail-text-block"></div>
+    </section>
+
+    <section id="detail-empty-section" hidden>
+      <p class="empty-note">No summary or notes were recorded for this run.</p>
+    </section>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="history-detail.js"></script>
+</body>
+</html>
