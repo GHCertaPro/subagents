@@ -9,25 +9,26 @@
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
 </head>
 <body>
-<header>
-  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
-  <div class="meta">
-    <span id="last-updated">not yet updated</span>
-  </div>
-</header>
-
 <!--
   This is the standalone "Live" page (the app's homepage / default route,
   served at "/"). It only ever shows currently running + queued subagents.
   History (completed/failed runs) now lives on its own separate page,
   dashboard/history.html, served at "/history" -- see nav below and
   server/index.js for the routing. There is no client-side view-toggle
-  state anymore; these are two real pages/routes.
+  state anymore; these are two real pages/routes. The nav lives inside
+  <header>, alongside the <h1>, so title + nav render on the same row
+  (see dashboard/style.css header flex layout).
 -->
-<nav class="top-nav" aria-label="Dashboard views">
-  <a href="/" class="nav-link active" aria-current="page">Live</a>
-  <a href="/history" class="nav-link">History</a>
-</nav>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
+  <nav class="top-nav" aria-label="Dashboard views">
+    <a href="/" class="nav-link active" aria-current="page">Live</a>
+    <a href="/history" class="nav-link">History</a>
+  </nav>
+  <div class="meta">
+    <span id="last-updated">not yet updated</span>
+  </div>
+</header>
 
 <div class="error-banner" id="error-banner"></div>
 

@@ -78,12 +78,15 @@ header h1:hover ~ .meta #last-updated {
    Live ("/") and History ("/history") are now two separate real pages
    (see server/index.js), not a client-side toggle on one page. This is
    a plain <nav> of two links, styled to look like the tab bar the old
-   .view-toggle buttons used to be. */
+   .view-toggle buttons used to be. It now lives inside <header> next to
+   the <h1> (see header flex rule above), on the same row as the title,
+   so no margin-bottom of its own -- header's own margin-bottom handles
+   the spacing before the page content below. */
 
 .top-nav {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .nav-link {
