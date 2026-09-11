@@ -113,6 +113,23 @@ function formatTimestamp(iso) {
   });
 }
 
+// DATE-ONLY (no time-of-day) formatting for the History list's collapsed
+// row view -- Gabe's ask: rows should show only the end date at a glance,
+// not a start+end range and not a time-of-day. The exact start/end
+// timestamps (with seconds) remain available on the click-through detail
+// page (history-detail.html / history-detail.js's formatTimestamp), which
+// is unchanged by this.
+function formatDateOnly(iso) {
+  if (!iso) return "—";
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return "—";
+  return new Date(ms).toLocaleDateString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function renderRunningSlot(log) {
   const div = document.createElement("div");
   if (!log) {
@@ -147,10 +164,15 @@ function renderQueuedRow(log) {
 function renderHistoryRow(log) {
   const li = document.createElement("li");
   li.className = `status-${escapeHtml(log.status)}`;
+  // Collapsed/list view shows ONLY the end date (Gabe's ask) -- no start
+  // date, no time-of-day, no range. Exact start+end timestamps (with
+  // seconds) are shown on the click-through full-report detail page
+  // instead (history-detail.html), which already renders both via its own
+  // formatTimestamp().
   li.innerHTML = `
     <span class="task-name">${escapeHtml(formatTaskName(log.task_name))}</span>
     <span class="status-badge">${escapeHtml(log.status)}</span>
-    <span class="history-times">started ${escapeHtml(formatTimestamp(log.started_at))} → ended ${escapeHtml(formatTimestamp(log.ended_at))}</span>
+    <span class="history-times">ended ${escapeHtml(formatDateOnly(log.ended_at))}</span>
   `;
   li.dataset.id = log.id;
 
