@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { getPool } from "../db.js";
 import { requireApiKey } from "../auth.js";
+import { deriveSummaryFromNotes } from "../lib/deriveSummary.js";
 
 const router = Router();
 
@@ -86,7 +87,30 @@ router.patch("/:id", requireApiKey, async (req, res) => {
   if (started_at !== undefined) set("started_at", started_at);
   if (ended_at !== undefined) set("ended_at", ended_at);
   if (notes !== undefined) set("notes", notes);
-  if (summary !== undefined) set("summary", summary);
+
+  // `summary` handling: an explicit, non-empty `summary` in this request
+  // always wins (caller knows best). Otherwise, when this request is
+  // marking the row done/failed AND supplying `notes`, auto-derive a
+  // short summary server-side from `notes` and write it into the
+  // `summary` column -- this is the durable fix for the root bug where
+  // `summary` almost never got populated because callers only ever sent
+  // the long structured `notes` report and were never told to also send
+  // a short `summary`. See server/lib/deriveSummary.js for the
+  // deterministic (no LLM call) extraction logic. If `summary` was sent
+  // explicitly but auto-derivation conditions aren't met (e.g. an
+  // intentional clear via summary: "", or status isn't done/failed),
+  // fall back to honoring whatever was actually sent.
+  const explicitSummary =
+    summary !== undefined && String(summary).trim() !== "" ? String(summary).trim() : null;
+  if (explicitSummary) {
+    set("summary", explicitSummary);
+  } else if (status !== undefined && (status === "done" || status === "failed") && notes !== undefined) {
+    const derived = deriveSummaryFromNotes(notes);
+    if (derived) set("summary", derived);
+  } else if (summary !== undefined) {
+    set("summary", summary);
+  }
+
   if (requested_by !== undefined) set("requested_by", requested_by);
   if (metadata !== undefined) set("metadata", JSON.stringify(metadata));
 
