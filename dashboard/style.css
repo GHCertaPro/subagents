@@ -307,7 +307,7 @@ section > h2 {
 #history-list li .history-times {
   color: #888;
   font-size: 0.8rem;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .empty-note {
