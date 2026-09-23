@@ -40,6 +40,19 @@ function resolveToken() {
 
 const DASHBOARD_TOKEN = resolveToken();
 
+// Inject token into all nav links so the token persists across page navigation.
+// Without this, clicking History drops ?token= from the URL.
+if (DASHBOARD_TOKEN) {
+  document.querySelectorAll("a.nav-link").forEach((a) => {
+    try {
+      const url = new URL(a.href, window.location.origin);
+      url.searchParams.set("token", DASHBOARD_TOKEN);
+      a.href = url.toString();
+    } catch (_) {}
+  });
+  // Also rewrite history-detail links when rows are clicked (handled inline below).
+}
+
 // Build fetch options with x-api-key header if we have a token
 function apiFetchOptions() {
   const opts = { cache: "no-store" };
@@ -208,7 +221,10 @@ function renderHistoryRow(log) {
   li.classList.add("history-row-link");
 
   li.addEventListener("click", () => {
-    window.location.href = `history-detail.html?id=${encodeURIComponent(log.id)}`;
+    const detailUrl = new URL(`history-detail.html`, window.location.origin);
+    detailUrl.searchParams.set("id", log.id);
+    if (DASHBOARD_TOKEN) detailUrl.searchParams.set("token", DASHBOARD_TOKEN);
+    window.location.href = detailUrl.toString();
   });
 
   return li;
