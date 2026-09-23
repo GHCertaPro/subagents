@@ -6,14 +6,42 @@
 //   - dashboard/history.html ("/history") -- History: 50 most-recent
 //     terminal-status runs, newest-first, with "Load More" pagination.
 //
-// Token-locked views:
-//   Each user's dashboard URL includes ?token=<api_key>. On load, this
-//   script reads `token` from the URL query string and stores it in
-//   sessionStorage. All API calls include x-api-key: <token> so the
-//   server can resolve the bot_id and auto-filter the response.
-//
-//   If no token is found (no URL param, no sessionStorage), the live-view
-//   is hidden and a "Enter your invite code" prompt is shown.
+// Auth: JWT stored in localStorage (key: __auth_token). If not present,
+//   the user is redirected to /login. The per-bot API key token
+//   (DASHBOARD_TOKEN) is still used for x-api-key headers on API calls
+//   so the server can filter logs by bot_id.
+
+// ── JWT Auth Gate ─────────────────────────────────────────────────────────────
+// Runs immediately on page load. Redirects to /login if no JWT found.
+// Also injects user info (email + logout) into the header.
+(function initJwtGate() {
+  const jwtToken = localStorage.getItem("__auth_token");
+  if (!jwtToken) {
+    window.location.replace("/login");
+    return;
+  }
+
+  // Show user identity in header
+  try {
+    const user = JSON.parse(localStorage.getItem("__auth_user") || "{}");
+    if (user && user.email) {
+      const meta = document.querySelector("header .meta");
+      if (meta) {
+        const userInfo = document.createElement("span");
+        userInfo.className = "user-session";
+        const safeEmail = String(user.email).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        userInfo.innerHTML = ` · <span class="user-email">${safeEmail}</span> <a href="#" id="logout-btn" style="color:#f88;font-size:0.8rem;margin-left:6px;">Sign out</a>`;
+        meta.appendChild(userInfo);
+        document.getElementById("logout-btn").addEventListener("click", function(e) {
+          e.preventDefault();
+          localStorage.removeItem("__auth_token");
+          localStorage.removeItem("__auth_user");
+          window.location.replace("/login");
+        });
+      }
+    }
+  } catch (_) {}
+})();
 
 const POLL_INTERVAL_MS = 15000;
 const TICK_INTERVAL_MS = 60000;
@@ -90,14 +118,15 @@ const els = {
 };
 
 // ── Token gate ────────────────────────────────────────────────────────────────
+// JWT auth is now the primary gate (handled by initJwtGate above).
+// DASHBOARD_TOKEN (old per-bot API key) is optional — used only for
+// bot-level log filtering via x-api-key header. Authenticated users
+// without a token see all public logs.
 function checkTokenGate() {
-  if (DASHBOARD_TOKEN) return true; // has a token — allow
-
-  // No token — show gate, hide views
-  if (els.tokenGate) els.tokenGate.style.display = "block";
-  if (els.liveView) els.liveView.style.display = "none";
-  if (els.historyView) els.historyView.style.display = "none";
-  return false;
+  // JWT gate already redirected to /login if not authenticated.
+  // Always allow rendering; hide the legacy token-gate prompt.
+  if (els.tokenGate) els.tokenGate.style.display = "none";
+  return true;
 }
 
 // ── Formatting helpers ────────────────────────────────────────────────────────

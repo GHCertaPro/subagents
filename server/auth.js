@@ -15,6 +15,7 @@
 //   Checks x-api-key against process.env.ADMIN_KEY. Attaches req.isAdmin = true.
 
 import { getPool } from "./db.js";
+import jwt from "jsonwebtoken";
 
 // ── In-memory cache for DB-backed token lookups ──────────────────────────────
 // Key: api_key string → Value: { bot_id, display_name, cachedAt }
@@ -101,6 +102,37 @@ export async function requireApiKey(req, res, next) {
   }
 
   return res.status(401).json({ error: "Unauthorized: invalid x-api-key." });
+}
+
+// ── verifyToken ──────────────────────────────────────────────────────────────
+// JWT-based auth middleware for user-session protected routes.
+// Reads Authorization: Bearer <jwt> or __auth_token cookie.
+// Attaches req.user = { id, email, role } on success.
+export function verifyToken(req, res, next) {
+  let token = null;
+
+  const authHeader = req.get("Authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.slice(7).trim();
+  } else if (req.cookies && req.cookies.__auth_token) {
+    token = req.cookies.__auth_token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: "Authentication required." });
+  }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret || !secret.trim()) {
+    return res.status(500).json({ error: "JWT_SECRET is not configured." });
+  }
+
+  try {
+    req.user = jwt.verify(token, secret.trim());
+    return next();
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token." });
+  }
 }
 
 // ── requireAdmin ──────────────────────────────────────────────────────────────

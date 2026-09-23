@@ -5,9 +5,11 @@
 import "dotenv/config";
 import crypto from "node:crypto";
 import express from "express";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import logsRouter from "./routes/logs.js";
+import authRouter from "./routes/auth.js";
 import { requireAdmin } from "./auth.js";
 import { getPool } from "./db.js";
 
@@ -74,12 +76,14 @@ function main() {
 
   const app = express();
   app.use(express.json());
+  app.use(cookieParser());
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "subagents-log-service" });
   });
 
   app.use("/api/logs", logsRouter);
+  app.use("/api/auth", authRouter);
 
   // ── POST /api/redeem — public, redeem an invite code ──────────────────────
   app.post("/api/redeem", async (req, res) => {
@@ -259,6 +263,14 @@ function main() {
 
   app.get("/invite", (_req, res) => {
     res.sendFile(path.join(DASHBOARD_DIR, "invite.html"));
+  });
+
+  app.get("/login", (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, "login.html"));
+  });
+
+  app.get("/redeem", (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, "redeem.html"));
   });
 
   app.use(express.static(DASHBOARD_DIR));
