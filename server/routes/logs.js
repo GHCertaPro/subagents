@@ -12,6 +12,13 @@ const router = Router();
 
 const VALID_STATUSES = ["queued", "running", "done", "failed", "cancelled"];
 
+// Cap notes at 2 KB to keep Neon storage bounded across many bots/users.
+// The summary column is the right place for the short human-readable result;
+// notes is for structured detail that doesn't need to be a full transcript.
+const NOTES_MAX_LEN = 2048;
+const capNotes = (s) =>
+  s && s.length > NOTES_MAX_LEN ? s.slice(0, NOTES_MAX_LEN) + "…" : s;
+
 // POST /api/logs
 // Create a new log entry. Can represent a task being queued
 // (status defaults to "queued", started_at omitted) or a task that is
@@ -50,7 +57,7 @@ router.post("/", requireApiKey, async (req, res) => {
         finalStatus,
         queued_at ?? null,
         started_at ?? null,
-        notes ?? null,
+        capNotes(notes ?? null),
         summary ?? null,
         requested_by ?? null,
         metadata ? JSON.stringify(metadata) : null,
@@ -93,7 +100,7 @@ router.patch("/:id", requireApiKey, async (req, res) => {
   if (status !== undefined) set("status", status);
   if (started_at !== undefined) set("started_at", started_at);
   if (ended_at !== undefined) set("ended_at", ended_at);
-  if (notes !== undefined) set("notes", notes);
+  if (notes !== undefined) set("notes", capNotes(notes));
 
   // `summary` handling: an explicit, non-empty `summary` in this request
   // always wins (caller knows best). Otherwise, when this request is
