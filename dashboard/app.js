@@ -47,6 +47,16 @@ const HISTORY_INITIAL_LIMIT = 50; // Gabe's ask: History shows the 50 most recen
 const HISTORY_LOAD_MORE_LIMIT = 25; // Gabe's ask: "Load More" fetches up to 25 more at a time.
 const RUNNING_SLOTS = 3;
 
+// Multi-tenant: read ?bot=<id> from the URL, pass as ?bot_id=<id> to API
+// calls. Valid options: "all" (no filter), "cos", "dispatch".
+// Default: "all" (show everything, unchanged behavior for existing users).
+const VALID_BOT_IDS = ["cos", "dispatch"];
+const BOT_FILTER = (() => {
+  const param = new URLSearchParams(window.location.search).get("bot");
+  if (!param || param === "all" || !VALID_BOT_IDS.includes(param)) return null;
+  return param;
+})();
+
 const state = {
   logs: [],
   lastFetchAt: null,
@@ -391,6 +401,7 @@ async function fetchHistoryPage(offset, limit) {
     limit: String(limit),
     offset: String(offset),
   });
+  if (BOT_FILTER) params.set("bot_id", BOT_FILTER);
   const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/logs?${params.toString()}`, {
     cache: "no-store",
   });
@@ -472,6 +483,7 @@ async function poll() {
       status: LIVE_STATUS_PARAM,
       limit: String(LIVE_FETCH_LIMIT),
     });
+    if (BOT_FILTER) params.set("bot_id", BOT_FILTER);
     const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/logs?${params.toString()}`, {
       cache: "no-store",
     });

@@ -16,8 +16,11 @@ const VALID_STATUSES = ["queued", "running", "done", "failed", "cancelled"];
 // Create a new log entry. Can represent a task being queued
 // (status defaults to "queued", started_at omitted) or a task that is
 // starting immediately (pass status: "running", started_at: <iso>).
+// bot_id is auto-stamped from the authenticated API key; callers cannot
+// set it themselves (any bot_id in the body is ignored).
 router.post("/", requireApiKey, async (req, res) => {
-  const { task_name, status, queued_at, started_at, notes, summary, requested_by, metadata } =
+  // eslint-disable-next-line no-unused-vars -- bot_id in body is intentionally ignored
+  const { task_name, status, queued_at, started_at, notes, summary, requested_by, metadata, bot_id: _ignored } =
     req.body ?? {};
 
   if (!task_name || typeof task_name !== "string") {
@@ -31,13 +34,16 @@ router.post("/", requireApiKey, async (req, res) => {
     });
   }
 
+  // bot_id comes from the authenticated key, never from the request body
+  const botId = req.bot_id;
+
   try {
     const pool = getPool();
     const result = await pool.query(
       `INSERT INTO subagent_logs
-         (task_name, status, queued_at, started_at, notes, summary, requested_by, metadata)
+         (task_name, status, queued_at, started_at, notes, summary, requested_by, metadata, bot_id)
        VALUES
-         ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, COALESCE($8, '{}'::jsonb))
+         ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, COALESCE($8, '{}'::jsonb), $9)
        RETURNING *`,
       [
         task_name,
@@ -48,6 +54,7 @@ router.post("/", requireApiKey, async (req, res) => {
         summary ?? null,
         requested_by ?? null,
         metadata ? JSON.stringify(metadata) : null,
+        botId ?? null,
       ]
     );
     return res.status(201).json(result.rows[0]);
@@ -122,6 +129,24 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 
   try {
     const pool = getPool();
+
+    // Cross-bot write protection: verify the row's bot_id matches the
+    // authenticated caller's bot_id before allowing the update.
+    // Rows with bot_id = NULL are treated as legacy/unowned and can be
+    // updated by any authenticated caller (backward compat with rows
+    // created before multi-tenancy was added).
+    const ownerCheck = await pool.query(
+      `SELECT bot_id FROM subagent_logs WHERE id = $1`,
+      [id]
+    );
+    if (ownerCheck.rowCount === 0) {
+      return res.status(404).json({ error: "Log entry not found." });
+    }
+    const rowBotId = ownerCheck.rows[0].bot_id;
+    if (rowBotId !== null && rowBotId !== req.bot_id) {
+      return res.status(403).json({ error: "Not authorized to modify this log entry." });
+    }
+
     const result = await pool.query(
       `UPDATE subagent_logs SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
       values
@@ -165,13 +190,15 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 //                                   queries, which could silently duplicate
 //                                   or drop rows between Load More clicks).
 //   ?task_name=foo               filter by exact task_name
+//   ?bot_id=<id>                 optional: filter by bot_id (e.g. "cos",
+//                                 "dispatch"). If omitted, returns all rows.
 //
 // Response shape: { count, total, logs }. `count` is the number of rows in
 // this response; `total` is the total number of rows matching the same
 // filters (ignoring limit/offset) -- callers use `offset + count < total`
 // to know whether more pages exist.
 router.get("/", async (req, res) => {
-  const { status, task_name } = req.query;
+  const { status, task_name, bot_id } = req.query;
   let limit = parseInt(req.query.limit, 10);
   if (!Number.isFinite(limit) || limit <= 0) limit = 50;
   if (limit > 500) limit = 500;
@@ -211,6 +238,11 @@ router.get("/", async (req, res) => {
   if (task_name !== undefined) {
     clauses.push(`task_name = $${i++}`);
     values.push(task_name);
+  }
+
+  if (bot_id !== undefined) {
+    clauses.push(`bot_id = $${i++}`);
+    values.push(String(bot_id).trim());
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
