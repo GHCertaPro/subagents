@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard — Settings</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+</head>
+<body>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
+  <nav class="top-nav" aria-label="Dashboard views">
+    <a href="/" class="nav-link">Live</a>
+    <a href="/history" class="nav-link">History</a>
+    <a href="/settings" class="nav-link active" aria-current="page">Settings</a>
+  </nav>
+  <div class="meta">
+    <span>&nbsp;</span>
+  </div>
+</header>
+
+<div class="error-banner" id="error-banner"></div>
+
+<div id="settings-view">
+  <section>
+    <h2>Account</h2>
+    <ul id="settings-list">
+      <li id="settings-email-row">
+        <span class="task-name">Email</span>
+        <span id="settings-email" class="history-times">—</span>
+      </li>
+      <li id="settings-role-row">
+        <span class="task-name">Role</span>
+        <span id="settings-role" class="history-times">—</span>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Session</h2>
+    <button type="button" id="logout-btn" class="load-more-btn" style="margin:0;">Sign Out</button>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

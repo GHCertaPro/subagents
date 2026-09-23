@@ -21,26 +21,7 @@
     return;
   }
 
-  // Show user identity in header
-  try {
-    const user = JSON.parse(localStorage.getItem("__auth_user") || "{}");
-    if (user && user.email) {
-      const meta = document.querySelector("header .meta");
-      if (meta) {
-        const userInfo = document.createElement("span");
-        userInfo.className = "user-session";
-        const safeEmail = String(user.email).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-        userInfo.innerHTML = ` · <span class="user-email">${safeEmail}</span> <a href="#" id="logout-btn" style="color:#f88;font-size:0.8rem;margin-left:6px;">Sign out</a>`;
-        meta.appendChild(userInfo);
-        document.getElementById("logout-btn").addEventListener("click", function(e) {
-          e.preventDefault();
-          localStorage.removeItem("__auth_token");
-          localStorage.removeItem("__auth_user");
-          window.location.replace("/login");
-        });
-      }
-    }
-  } catch (_) {}
+  // User identity is now shown on the Settings page (/settings), not the header.
 })();
 
 const POLL_INTERVAL_MS = 15000;

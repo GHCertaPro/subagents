@@ -365,6 +365,39 @@ footer {
   margin-top: 40px;
 }
 
+/* --- Settings page --- */
+
+#settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 480px;
+}
+
+#settings-list li {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+
+#settings-list li .task-name {
+  font-weight: bold;
+  min-width: 80px;
+}
+
+#settings-list li .history-times {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
 /* --- History detail page (dashboard/history-detail.html) --- */
 
 #detail-view {

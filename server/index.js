@@ -273,6 +273,10 @@ function main() {
     res.sendFile(path.join(DASHBOARD_DIR, "redeem.html"));
   });
 
+  app.get("/settings", (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, "settings.html"));
+  });
+
   app.use(express.static(DASHBOARD_DIR));
 
   app.use((req, res) => {
