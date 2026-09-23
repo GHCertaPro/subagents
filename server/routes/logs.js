@@ -5,7 +5,7 @@
 
 import { Router } from "express";
 import { getPool } from "../db.js";
-import { requireApiKey } from "../auth.js";
+import { requireApiKey, requireAdmin } from "../auth.js";
 import { deriveSummaryFromNotes } from "../lib/deriveSummary.js";
 
 const router = Router();
@@ -169,7 +169,7 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 });
 
 // GET /api/logs
-// List entries for a future dashboard. Supports:
+// List entries for the dashboard. Supports:
 //   ?status=running              filter by exact status
 //   ?status=done,failed,cancelled  comma-separated list filters to ANY of
 //                                   the given statuses (added for the
@@ -177,35 +177,49 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 //                                   terminal statuses in one call)
 //   ?limit=50                    cap result count (default 50, max 500)
 //   ?offset=0                    skip this many matching rows before
-//                                 taking `limit` (added for real
-//                                 server-side pagination -- see
-//                                 dashboard/app.js's History "Load More")
-//   ?order_by=queued_at|ended_at   sort key (default queued_at, unchanged
-//                                   behavior for existing callers).
-//                                   ended_at orders by
-//                                   COALESCE(ended_at, started_at, queued_at)
-//                                   DESC -- i.e. "most recently finished",
-//                                   matching the History tab's existing
-//                                   newest-first semantics. Both modes add
-//                                   `id DESC` as a secondary sort key so
-//                                   that offset-based pagination is fully
-//                                   deterministic across repeated calls
-//                                   even when many rows share the exact
-//                                   same timestamp (otherwise Postgres does
-//                                   not guarantee stable ordering for tied
-//                                   rows across separate LIMIT/OFFSET
-//                                   queries, which could silently duplicate
-//                                   or drop rows between Load More clicks).
+//                                 taking `limit` (real server-side pagination)
+//   ?order_by=queued_at|ended_at   sort key (default queued_at)
 //   ?task_name=foo               filter by exact task_name
-//   ?bot_id=<id>                 optional: filter by bot_id (e.g. "cos",
-//                                 "dispatch"). If omitted, returns all rows.
+//   ?bot_id=<id>                 optional: filter by bot_id. If the request
+//                                 includes a valid x-api-key header, the
+//                                 bot_id is resolved from the key and this
+//                                 param is IGNORED (user sees only their bot).
+//                                 If no key: backward-compat open behavior.
 //
-// Response shape: { count, total, logs }. `count` is the number of rows in
-// this response; `total` is the total number of rows matching the same
-// filters (ignoring limit/offset) -- callers use `offset + count < total`
-// to know whether more pages exist.
+// Response shape: { count, total, logs }.
 router.get("/", async (req, res) => {
-  const { status, task_name, bot_id } = req.query;
+  const { status, task_name } = req.query;
+
+  // If caller supplies a valid x-api-key, resolve bot_id from the token table
+  // and force-filter to that bot (user isolation). Ignore any ?bot_id= param.
+  let bot_id = req.query.bot_id;
+  const apiKey = req.get("x-api-key");
+  if (apiKey) {
+    try {
+      const pool = getPool();
+      const tokenRow = await pool.query(
+        "SELECT bot_id FROM bot_tokens WHERE api_key = $1",
+        [apiKey]
+      );
+      if (tokenRow.rowCount > 0) {
+        // Key resolved — override bot_id with the token's bot
+        bot_id = tokenRow.rows[0].bot_id;
+      } else {
+        // Key provided but not found — try BOT_KEYS env fallback
+        const raw = process.env.BOT_KEYS;
+        if (raw) {
+          try {
+            const botKeys = JSON.parse(raw);
+            const resolved = Object.keys(botKeys).find((id) => botKeys[id] === apiKey);
+            if (resolved) bot_id = resolved;
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (err) {
+      console.warn("[GET /api/logs] token lookup failed:", err.message);
+      // Non-fatal — fall through with whatever bot_id was in the query
+    }
+  }
   let limit = parseInt(req.query.limit, 10);
   if (!Number.isFinite(limit) || limit <= 0) limit = 50;
   if (limit > 500) limit = 500;

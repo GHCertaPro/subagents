@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard — Invite</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+<style>
+  .invite-container {
+    max-width: 480px;
+    margin: 80px auto 0;
+    text-align: center;
+  }
+  .invite-container h2 {
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+  .invite-container p {
+    color: #888;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .code-input {
+    width: 100%;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 1.1rem;
+    text-align: center;
+    letter-spacing: 0.1em;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .code-input:focus { outline: none; border-color: #4af; }
+  .btn-primary {
+    background: #1a3a5c;
+    border: 1px solid #4af;
+    color: #4af;
+    padding: 11px 28px;
+    font: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .btn-primary:hover { background: #1e4a72; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+  .success-box {
+    background: #0a1a0a;
+    border: 1px solid #252;
+    border-radius: 6px;
+    padding: 24px 28px;
+    text-align: left;
+    margin-top: 24px;
+  }
+  .success-box h3 { color: #4f4; margin: 0 0 12px; font-size: 1.1rem; }
+  .success-box .warning {
+    color: #fa0;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+  .url-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    word-break: break-all;
+    font-size: 0.9rem;
+  }
+  .url-row a { color: #4af; text-decoration: underline; flex: 1; }
+  .btn-copy {
+    background: #112233;
+    border: 1px solid #335;
+    color: #7af;
+    padding: 5px 12px;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-copy:hover { background: #1a3a5c; }
+  .btn-copy.copied { color: #4f4; border-color: #4f4; }
+
+  .error-msg { color: #f55; margin-top: 16px; font-size: 0.9rem; }
+  .loading-msg { color: #888; margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
+</header>
+
+<div class="invite-container">
+  <div id="redeem-form">
+    <h2>Enter Your Invite Code</h2>
+    <p>You received a unique invite code from your administrator.<br>Enter it below to get your personal dashboard link.</p>
+    <input type="text" class="code-input" id="code-input" placeholder="e.g. a1b2c3d4" maxlength="32" />
+    <br>
+    <button class="btn-primary" id="redeem-btn" onclick="redeemCode()">Redeem</button>
+    <div id="redeem-status"></div>
+  </div>
+
+  <div id="redeem-success" style="display:none">
+    <div class="success-box">
+      <h3 id="welcome-msg">Welcome!</h3>
+      <p class="warning">⚠️ Save your dashboard link now — it won't be shown again.</p>
+      <div class="url-row">
+        <a id="dashboard-link" href="#" target="_blank"></a>
+        <button class="btn-copy" id="copy-btn" onclick="copyDashboardUrl()">Copy</button>
+      </div>
+      <p style="color:#888; font-size:0.85rem; margin:0">
+        This URL is personal to you. Bookmark it or save it somewhere safe.
+        Anyone with this link can see your bot's activity.
+      </p>
+    </div>
+    <br>
+    <a href="#" id="go-dashboard-btn" class="btn-primary" style="display:inline-block; text-decoration:none; margin-top:8px">
+      Open Dashboard →
+    </a>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+let redeemResult = null;
+
+async function redeemCode() {
+  const code = document.getElementById("code-input").value.trim();
+  if (!code) return;
+
+  const btn = document.getElementById("redeem-btn");
+  const statusEl = document.getElementById("redeem-status");
+  btn.disabled = true;
+  btn.textContent = "Redeeming…";
+  statusEl.innerHTML = "";
+
+  try {
+    const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/redeem`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    redeemResult = data;
+    showSuccess(data);
+  } catch (err) {
+    statusEl.innerHTML = `<div class="error-msg">${escHtml(err.message)}</div>`;
+    btn.disabled = false;
+    btn.textContent = "Redeem";
+  }
+}
+
+function showSuccess(data) {
+  document.getElementById("redeem-form").style.display = "none";
+  const successEl = document.getElementById("redeem-success");
+  successEl.style.display = "block";
+
+  const name = data.display_name || "there";
+  document.getElementById("welcome-msg").textContent = `Welcome, ${name}!`;
+
+  const url = data.dashboard_url;
+  const link = document.getElementById("dashboard-link");
+  link.href = url;
+  link.textContent = url;
+
+  const goBtn = document.getElementById("go-dashboard-btn");
+  goBtn.href = url;
+}
+
+function copyDashboardUrl() {
+  if (!redeemResult) return;
+  navigator.clipboard.writeText(redeemResult.dashboard_url).then(() => {
+    const btn = document.getElementById("copy-btn");
+    btn.textContent = "Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+function escHtml(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Pre-fill code from URL ?code= param
+(function() {
+  const code = new URLSearchParams(window.location.search).get("code");
+  if (code) {
+    const input = document.getElementById("code-input");
+    if (input) input.value = code;
+  }
+})();
+</script>
+</body>
+</html>

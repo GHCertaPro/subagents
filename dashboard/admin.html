@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subagents Dashboard — Admin</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+<style>
+  .admin-tabs { display: flex; gap: 8px; margin-bottom: 28px; }
+  .admin-tab  { background: #111; border: 1px solid #333; color: #ccc;
+                padding: 8px 20px; cursor: pointer; border-radius: 4px;
+                font: inherit; font-size: 0.9rem; }
+  .admin-tab.active { background: #1a3a5c; border-color: #4af; color: #4af; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #222; }
+  th { color: #888; font-weight: normal; }
+  tr:hover td { background: #0a0a0a; }
+
+  .badge-copy { background: #112233; border: 1px solid #335; color: #7af;
+                padding: 3px 10px; font: inherit; font-size: 0.8rem;
+                cursor: pointer; border-radius: 3px; }
+  .badge-copy:hover { background: #1a3a5c; }
+
+  .invite-form { background: #0a0a0a; border: 1px solid #222; padding: 20px 24px;
+                 border-radius: 6px; max-width: 480px; margin-bottom: 32px; }
+  .invite-form h3 { margin: 0 0 16px; font-size: 1rem; color: #ccc; }
+  .form-row { margin-bottom: 12px; }
+  .form-row label { display: block; color: #888; font-size: 0.8rem; margin-bottom: 4px; }
+  .form-row input { width: 100%; background: #111; border: 1px solid #333;
+                    color: #fff; padding: 7px 10px; font: inherit;
+                    font-size: 0.9rem; border-radius: 3px; }
+  .form-row input:focus { outline: none; border-color: #4af; }
+  .btn-primary { background: #1a3a5c; border: 1px solid #4af; color: #4af;
+                 padding: 9px 22px; font: inherit; font-size: 0.9rem;
+                 cursor: pointer; border-radius: 4px; }
+  .btn-primary:hover { background: #1e4a72; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+  .result-box { background: #0a1a0a; border: 1px solid #252; border-radius: 5px;
+                padding: 16px 20px; margin-top: 16px; font-size: 0.85rem; }
+  .result-box a { color: #4af; }
+  .result-label { color: #888; font-size: 0.78rem; margin-bottom: 2px; }
+  .result-value { word-break: break-all; margin-bottom: 10px; }
+
+  .status-dot { display: inline-block; width: 8px; height: 8px;
+                border-radius: 50%; margin-right: 6px; }
+  .dot-running { background: #4f4; }
+  .dot-idle    { background: #555; }
+
+  #auth-gate { text-align: center; padding: 80px 20px; }
+  #auth-gate input { background: #111; border: 1px solid #333; color: #fff;
+                     padding: 10px 14px; font: inherit; font-size: 1rem;
+                     width: 340px; max-width: 100%; border-radius: 4px; }
+  #auth-gate input:focus { outline: none; border-color: #4af; }
+
+  .copied { color: #4f4 !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Admin</h1>
+  <nav class="top-nav" aria-label="Dashboard views">
+    <a href="/" class="nav-link">Live</a>
+    <a href="/history" class="nav-link">History</a>
+    <a href="/admin" class="nav-link active" aria-current="page">Admin</a>
+  </nav>
+  <div class="meta"><span id="admin-status"></span></div>
+</header>
+
+<div class="error-banner" id="error-banner"></div>
+
+<!-- Auth gate shown when no admin key is present -->
+<div id="auth-gate" style="display:none">
+  <p style="color:#aaa; margin-bottom:16px;">Enter admin key to continue:</p>
+  <input type="password" id="admin-key-input" placeholder="Admin key" />
+  <br><br>
+  <button class="btn-primary" onclick="submitAdminKey()">Unlock</button>
+</div>
+
+<div id="admin-panel" style="display:none">
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchTab('bots')">Bots</button>
+    <button class="admin-tab" onclick="switchTab('invites')">Invites</button>
+    <button class="admin-tab" onclick="switchTab('analysis')">Analysis</button>
+  </div>
+
+  <!-- Bots tab -->
+  <div id="tab-bots" class="tab-panel active">
+    <p style="color:#888; font-size:0.85rem; margin-bottom:16px;">All registered bots with run statistics.</p>
+    <div id="bots-loading" style="color:#555">Loading…</div>
+    <table id="bots-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Display Name</th>
+          <th>Bot ID</th>
+          <th>Total Runs</th>
+          <th>Running Now</th>
+          <th>Last Run</th>
+          <th>Dashboard URL</th>
+        </tr>
+      </thead>
+      <tbody id="bots-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Invites tab -->
+  <div id="tab-invites" class="tab-panel">
+    <div class="invite-form">
+      <h3>Create New Invite</h3>
+      <div class="form-row">
+        <label>Display Name *</label>
+        <input type="text" id="invite-name" placeholder="e.g. Acme Corp" />
+      </div>
+      <div class="form-row">
+        <label>Expiry (days, optional)</label>
+        <input type="number" id="invite-expiry" placeholder="e.g. 30" min="1" />
+      </div>
+      <button class="btn-primary" id="create-invite-btn" onclick="createInvite()">Create Invite</button>
+      <div id="invite-result" style="display:none"></div>
+    </div>
+
+    <p style="color:#888; font-size:0.85rem; margin-bottom:16px;">All invites.</p>
+    <div id="invites-loading" style="color:#555">Loading…</div>
+    <table id="invites-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Display Name</th>
+          <th>Bot ID</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th>Redeemed</th>
+          <th>Invite Link</th>
+        </tr>
+      </thead>
+      <tbody id="invites-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Analysis tab (placeholder) -->
+  <div id="tab-analysis" class="tab-panel">
+    <p style="color:#555; font-style:italic; padding: 40px 0;">Analysis panel — coming soon.</p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────────
+const ADMIN_SESSION_KEY = "subagents_admin_key";
+
+function getAdminKey() {
+  // Priority: ?admin_key= URL param > sessionStorage
+  const urlParam = new URLSearchParams(window.location.search).get("admin_key");
+  if (urlParam && urlParam.trim()) {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, urlParam.trim());
+    return urlParam.trim();
+  }
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) || null;
+}
+
+let ADMIN_KEY = getAdminKey();
+
+function adminFetch(url, opts = {}) {
+  return fetch(`${window.SUBAGENTS_API_BASE}${url}`, {
+    ...opts,
+    headers: {
+      "x-api-key": ADMIN_KEY,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+    cache: "no-store",
+  });
+}
+
+function submitAdminKey() {
+  const val = document.getElementById("admin-key-input").value.trim();
+  if (!val) return;
+  ADMIN_KEY = val;
+  sessionStorage.setItem(ADMIN_SESSION_KEY, val);
+  initAdmin();
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".admin-tab").forEach((btn) => btn.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach((pnl) => pnl.classList.remove("active"));
+  const tabs = ["bots", "invites", "analysis"];
+  const idx = tabs.indexOf(name);
+  if (idx >= 0) document.querySelectorAll(".admin-tab")[idx].classList.add("active");
+  const pnl = document.getElementById(`tab-${name}`);
+  if (pnl) pnl.classList.add("active");
+}
+
+// ── Bots ──────────────────────────────────────────────────────────────────────
+async function loadBots() {
+  try {
+    const res = await adminFetch("/admin/api/bots");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { bots } = await res.json();
+    renderBots(bots);
+  } catch (err) {
+    document.getElementById("bots-loading").textContent = `Error: ${err.message}`;
+  }
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+}
+
+function escHtml(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function renderBots(bots) {
+  document.getElementById("bots-loading").style.display = "none";
+  const table = document.getElementById("bots-table");
+  table.style.display = "";
+  const tbody = document.getElementById("bots-tbody");
+  tbody.innerHTML = "";
+  for (const b of bots) {
+    const tr = document.createElement("tr");
+    const dotClass = b.running_now > 0 ? "dot-running" : "dot-idle";
+    tr.innerHTML = `
+      <td>${escHtml(b.display_name || b.bot_id)}</td>
+      <td style="color:#888">${escHtml(b.bot_id)}</td>
+      <td>${b.total_runs}</td>
+      <td><span class="status-dot ${dotClass}"></span>${b.running_now}</td>
+      <td>${fmtDate(b.last_run_at)}</td>
+      <td><button class="badge-copy" onclick="copyText(${JSON.stringify(b.dashboard_url)}, this)">Copy URL</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ── Invites ───────────────────────────────────────────────────────────────────
+async function loadInvites() {
+  try {
+    const res = await adminFetch("/admin/api/invites");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { invites } = await res.json();
+    renderInvites(invites);
+  } catch (err) {
+    document.getElementById("invites-loading").textContent = `Error: ${err.message}`;
+  }
+}
+
+function renderInvites(invites) {
+  document.getElementById("invites-loading").style.display = "none";
+  const table = document.getElementById("invites-table");
+  table.style.display = "";
+  const tbody = document.getElementById("invites-tbody");
+  tbody.innerHTML = "";
+  if (invites.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:#555; text-align:center; padding:20px">No invites yet.</td></tr>`;
+    return;
+  }
+  for (const inv of invites) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="font-family:monospace">${escHtml(inv.code)}</td>
+      <td>${escHtml(inv.display_name)}</td>
+      <td style="color:#888">${escHtml(inv.bot_id)}</td>
+      <td>${fmtDate(inv.created_at)}</td>
+      <td>${fmtDate(inv.expires_at)}</td>
+      <td>${inv.redeemed_at ? fmtDate(inv.redeemed_at) : '<span style="color:#555">—</span>'}</td>
+      <td><button class="badge-copy" onclick="copyText(${JSON.stringify(inv.invite_url)}, this)">Copy Link</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function createInvite() {
+  const name = document.getElementById("invite-name").value.trim();
+  if (!name) { alert("Display name is required."); return; }
+  const expiry = document.getElementById("invite-expiry").value.trim();
+  const btn = document.getElementById("create-invite-btn");
+  btn.disabled = true;
+  btn.textContent = "Creating…";
+  const resultEl = document.getElementById("invite-result");
+  resultEl.style.display = "none";
+
+  try {
+    const body = { display_name: name };
+    if (expiry && Number(expiry) > 0) body.expiry_days = Number(expiry);
+    const res = await adminFetch("/admin/api/invites", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    resultEl.style.display = "block";
+    resultEl.innerHTML = `
+      <div class="result-box">
+        <div class="result-label">Invite URL (send this to the user)</div>
+        <div class="result-value">
+          <a href="${escHtml(data.invite_url)}" target="_blank">${escHtml(data.invite_url)}</a>
+          <button class="badge-copy" style="margin-left:8px" onclick="copyText(${JSON.stringify(data.invite_url)}, this)">Copy</button>
+        </div>
+        <div class="result-label">Dashboard URL (after redemption)</div>
+        <div class="result-value">
+          <a href="${escHtml(data.dashboard_url)}" target="_blank">${escHtml(data.dashboard_url)}</a>
+          <button class="badge-copy" style="margin-left:8px" onclick="copyText(${JSON.stringify(data.dashboard_url)}, this)">Copy</button>
+        </div>
+        <div class="result-label">Bot ID</div>
+        <div class="result-value">${escHtml(data.bot_id)}</div>
+      </div>
+    `;
+    document.getElementById("invite-name").value = "";
+    document.getElementById("invite-expiry").value = "";
+    // Refresh invite list
+    loadInvites();
+  } catch (err) {
+    resultEl.style.display = "block";
+    resultEl.innerHTML = `<div style="color:#f55; margin-top:10px">Error: ${escHtml(err.message)}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = "Create Invite";
+}
+
+// ── Clipboard helper ──────────────────────────────────────────────────────────
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = "Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function initAdmin() {
+  if (!ADMIN_KEY) {
+    document.getElementById("auth-gate").style.display = "block";
+    return;
+  }
+
+  // Test the key
+  try {
+    const res = await adminFetch("/admin/api/bots");
+    if (res.status === 401) {
+      document.getElementById("auth-gate").style.display = "block";
+      document.getElementById("admin-panel").style.display = "none";
+      document.getElementById("error-banner").textContent = "Invalid admin key.";
+      document.getElementById("error-banner").classList.add("visible");
+      return;
+    }
+    document.getElementById("error-banner").classList.remove("visible");
+  } catch { /* show panel anyway, errors will appear per-section */ }
+
+  document.getElementById("auth-gate").style.display = "none";
+  document.getElementById("admin-panel").style.display = "block";
+  loadBots();
+  loadInvites();
+}
+
+initAdmin();
+</script>
+</body>
+</html>

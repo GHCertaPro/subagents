@@ -9,14 +9,6 @@
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
 </head>
 <body>
-<!--
-  Standalone "History" page, served at "/history" (see server/index.js).
-  Shows only completed ("done") and failed (and cancelled) past runs --
-  never the currently running/queued set, which now lives solely on the
-  Live homepage (dashboard/index.html, served at "/"). The nav lives
-  inside <header>, alongside the <h1>, so title + nav render on the same
-  row (see dashboard/style.css header flex layout).
--->
 <header>
   <h1><img class="logo-icon" src="assets/submarine-logo.png" alt="" aria-hidden="true"> Subagents Dashboard</h1>
   <nav class="top-nav" aria-label="Dashboard views">
@@ -25,16 +17,16 @@
   </nav>
   <div class="meta">
     <span id="last-updated">&nbsp;</span>
-    <select id="bot-selector" aria-label="Filter by bot" title="Filter by bot"
-      onchange="(function(sel){var q=new URLSearchParams(window.location.search);if(sel.value&&sel.value!=='all'){q.set('bot',sel.value);}else{q.delete('bot');}window.location.search=q.toString();})(this)">
-      <option value="all">All bots</option>
-      <option value="cos">CoS</option>
-      <option value="dispatch">Dispatch</option>
-    </select>
   </div>
 </header>
 
 <div class="error-banner" id="error-banner"></div>
+
+<!-- Token gate: shown when no token is present in URL/sessionStorage -->
+<div id="token-gate" style="display:none; text-align:center; padding:60px 20px;">
+  <p style="color:#aaa; margin-bottom:16px;">No access token found.</p>
+  <a href="/invite.html" style="color:#4af; text-decoration:underline;">Enter your invite code</a>
+</div>
 
 <div id="history-view">
   <section>
@@ -46,13 +38,5 @@
 
 <script src="config.js"></script>
 <script src="app.js"></script>
-<script>
-  // Pre-select bot dropdown to match current ?bot= URL param
-  (function() {
-    var bot = new URLSearchParams(window.location.search).get('bot');
-    var sel = document.getElementById('bot-selector');
-    if (sel && bot) sel.value = bot;
-  })();
-</script>
 </body>
 </html>
