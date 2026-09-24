@@ -44,22 +44,21 @@
     <ul id="queued-list"><!-- variable length, rendered by app.js --></ul>
   </section>
 
-  <section id="time-tracker">
-    <h2>Time Tracker</h2>
-    <div class="time-tracker-grid">
-      <div class="time-clock-col">
-        <button id="clock-btn" class="clock-btn clock-in" type="button">🟢 Clock In</button>
-        <span id="clock-elapsed" class="clock-elapsed" style="display:none;"></span>
-      </div>
-      <div class="time-entries-col" id="time-entries-list">
-        <div class="time-entries-empty">Loading…</div>
-      </div>
-    </div>
-  </section>
 </div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="time-tracker.js"></script>
+<footer id="time-footer">
+  <div id="time-tracker-btn-col">
+    <button id="clock-btn" class="clock-btn clock-in" type="button">🟢 Clock In</button>
+    <span id="clock-elapsed" class="clock-elapsed" style="display:none;"></span>
+  </div>
+  <div id="time-tracker-log-col">
+    <div class="time-entries-col" id="time-entries-list">
+      <div class="time-entries-empty">Loading…</div>
+    </div>
+  </div>
+</footer>
 </body>
 </html>
