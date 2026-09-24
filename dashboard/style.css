@@ -554,6 +554,48 @@ footer {
 
 /* --- Work Sessions table in Settings --- */
 
+/* Day navigation controls */
+.ws-day-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ws-day-nav-btn {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #ccc;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ws-day-nav-btn:hover {
+  background: #2a2a2a;
+  border-color: #666;
+  color: #fff;
+}
+
+.ws-day-date-input {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ws-day-date-input:focus {
+  outline: none;
+  border-color: #666;
+}
+
 .work-sessions-stats {
   display: flex;
   gap: 24px;

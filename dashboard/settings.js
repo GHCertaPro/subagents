@@ -82,6 +82,39 @@ function getTodayCutoff() {
   return cutoff;
 }
 
+/**
+ * Return the YYYY-MM-DD string for the current work day.
+ * The work day starts at 3:00 AM ET, so before 3 AM ET the work day is
+ * the previous calendar date.
+ */
+function workDayDateStr() {
+  const cutoff = getTodayCutoff(); // 3:00 AM ET of today's work day start
+  const y = cutoff.getFullYear();
+  const m = String(cutoff.getMonth() + 1).padStart(2, "0");
+  const d = String(cutoff.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Given a YYYY-MM-DD work-day date string, return {start, end} UTC Date objects
+ * representing the [3:00 AM ET, next 3:00 AM ET) window for that day.
+ */
+function getDayCutoffs(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  // Compute ET offset using a reference time at noon UTC on that date
+  // (DST transitions happen at 2 AM, so noon is safely past any transition)
+  const ref = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const etOffsetMs =
+    ref.getTime() -
+    new Date(ref.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime();
+  // Build 3:00 AM wall-clock on that date and shift to UTC
+  const startWall = new Date(year, month - 1, day, 3, 0, 0, 0);
+  const start = new Date(startWall.getTime() + etOffsetMs);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start, end };
+}
+
+
 /** Get Monday 00:00:00 of the current week in local time */
 function getMondayOfWeek() {
   const now = new Date();
@@ -125,6 +158,12 @@ const WS_LIMIT = 50;
 let wsTotal = 0;
 let wsAllEntries = []; // accumulated for week/month stats
 let wsEntriesMap = {}; // id (string) → entry object, for quick row re-render
+
+// ── Day navigation state ──────────────────────────────────────────────────────
+let selectedWorkDate = workDayDateStr(); // YYYY-MM-DD; see helper below (hoisted via function decl)
+let selectedDayEntries = []; // entries fetched for the selected day
+let dayJwt = null; // cached JWT for day navigation callbacks
+
 
 // ── Row rendering ─────────────────────────────────────────────────────────────
 
@@ -405,6 +444,75 @@ async function submitAddForm(jwt) {
   }
 }
 
+// ── Day view: fetch entries for a specific work day ──────────────────────────
+
+/**
+ * Fetch time entries for a given work-day date (YYYY-MM-DD) from the API.
+ * Uses the ?from=ISO&to=ISO params added to GET /api/time/entries.
+ * Updates selectedDayEntries and re-renders the day panel + stat box.
+ */
+async function loadDayEntries(jwt, dateStr) {
+  const { start, end } = getDayCutoffs(dateStr);
+  const from = encodeURIComponent(start.toISOString());
+  const to   = encodeURIComponent(end.toISOString());
+  const url  = `${window.SUBAGENTS_API_BASE}/api/time/entries?from=${from}&to=${to}&limit=100`;
+
+  const todayTbody = document.getElementById("ws-today-tbody");
+  if (todayTbody) {
+    todayTbody.innerHTML =
+      '<tr><td colspan="5" style="color:#555;font-style:italic;padding:12px;">Loading…</td></tr>';
+  }
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${jwt}` },
+      cache: "no-store",
+    });
+    if (res.status === 401) return;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    selectedDayEntries = data.entries || [];
+  } catch (err) {
+    selectedDayEntries = [];
+    if (todayTbody) {
+      todayTbody.innerHTML = `<tr><td colspan="5" style="color:#a33;">Failed to load: ${err.message}</td></tr>`;
+    }
+  }
+
+  computeAndRenderStats();
+}
+
+/**
+ * Navigate to a different work day. Adjusts selectedWorkDate by delta days
+ * (±1) or sets it directly to dateStr. Won't navigate past today.
+ */
+async function navigateDay(jwt, delta, dateStr) {
+  const todayStr = workDayDateStr();
+
+  if (dateStr) {
+    // Direct date input — clamp to today
+    selectedWorkDate = dateStr > todayStr ? todayStr : dateStr;
+  } else {
+    // Arrow navigation: step delta days
+    const [y, m, d] = selectedWorkDate.split("-").map(Number);
+    const next = new Date(y, m - 1, d + delta);
+    const pad = (n) => String(n).padStart(2, "0");
+    const nextStr = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+    selectedWorkDate = nextStr > todayStr ? todayStr : nextStr;
+  }
+
+  // Sync to today's in-memory entries if viewing today; otherwise fetch from API
+  if (selectedWorkDate === todayStr) {
+    const { start } = getDayCutoffs(selectedWorkDate);
+    selectedDayEntries = wsAllEntries.filter((e) => new Date(e.clocked_in) >= start);
+  } else {
+    await loadDayEntries(jwt, selectedWorkDate);
+    return; // loadDayEntries calls computeAndRenderStats itself
+  }
+
+  computeAndRenderStats();
+}
+
 // ── Load + render work sessions ───────────────────────────────────────────────
 
 async function loadWorkSessions(jwt, reset = false) {
@@ -433,6 +541,13 @@ async function loadWorkSessions(jwt, reset = false) {
     wsOffset += data.entries.length;
 
     renderWorkSessions(data.entries, reset);
+
+    // Keep selectedDayEntries in sync with wsAllEntries when viewing today
+    if (selectedWorkDate === workDayDateStr()) {
+      const { start } = getDayCutoffs(selectedWorkDate);
+      selectedDayEntries = wsAllEntries.filter((e) => new Date(e.clocked_in) >= start);
+    }
+
     computeAndRenderStats();
 
     const loadMoreBtn = document.getElementById("ws-load-more");
@@ -489,29 +604,42 @@ function computeAndRenderStats() {
   if (weekEl) weekEl.textContent = fmtHours(weekMins);
   if (monthEl) monthEl.textContent = fmtHours(monthMins);
 
-  renderTodaySection();
-}
-
-/** Render the Today subsection: total + table of today's entries. */
-function renderTodaySection() {
-  const cutoff = getTodayCutoff();
+  // Update the Today stat box (reflects selectedDayEntries)
   const now = new Date();
-
-  // Filter wsAllEntries to today's work day (clocked_in >= cutoff)
-  const todayEntries = wsAllEntries.filter((e) => new Date(e.clocked_in) >= cutoff);
-
-  // Compute today total: closed duration_minutes + elapsed for any open entry
   let todayMins = 0;
-  for (const e of todayEntries) {
+  for (const e of selectedDayEntries) {
     if (e.clocked_out && e.duration_minutes != null) {
       todayMins += e.duration_minutes;
     } else if (!e.clocked_out) {
       todayMins += Math.max(0, Math.floor((now - new Date(e.clocked_in)) / 60000));
     }
   }
+  const todayStatEl = document.getElementById("ws-hours-today");
+  if (todayStatEl) todayStatEl.textContent = fmtHours(todayMins);
 
-  const totalEl = document.getElementById("ws-today-total");
-  if (totalEl) totalEl.textContent = fmtHours(todayMins);
+  renderTodaySection();
+}
+
+/** Render the selected-day subsection: date nav label + table of that day's entries. */
+function renderTodaySection() {
+  // Update the day-nav date input to match selectedWorkDate
+  const dateInput = document.getElementById("ws-day-input");
+  if (dateInput && dateInput.value !== selectedWorkDate) dateInput.value = selectedWorkDate;
+
+  // Update the "Today" stat label to reflect whether we're viewing today or a past day
+  const statLabel = document.getElementById("ws-today-stat-label");
+  if (statLabel) {
+    const todayStr = workDayDateStr();
+    statLabel.textContent = selectedWorkDate === todayStr ? "Today" : fmtDate(selectedWorkDate + "T12:00:00");
+  }
+
+  // Disable the next-day button if selectedWorkDate is today or future
+  const nextBtn = document.getElementById("ws-day-next");
+  if (nextBtn) {
+    const todayStr = workDayDateStr();
+    nextBtn.disabled = selectedWorkDate >= todayStr;
+    nextBtn.style.opacity = nextBtn.disabled ? "0.4" : "";
+  }
 
   const todayTbody = document.getElementById("ws-today-tbody");
   if (!todayTbody) return;
@@ -519,9 +647,11 @@ function renderTodaySection() {
   // Don't clobber a row that is currently being edited/deleted
   if (todayTbody.querySelector(".ws-editing, .ws-confirming-delete")) return;
 
+  const todayEntries = selectedDayEntries;
+
   if (todayEntries.length === 0) {
     todayTbody.innerHTML =
-      '<tr><td colspan="5" style="color:#555;font-style:italic;padding:12px;">No sessions today.</td></tr>';
+      '<tr><td colspan="5" style="color:#555;font-style:italic;padding:12px;">No sessions for this day.</td></tr>';
     return;
   }
 
@@ -583,6 +713,12 @@ function renderTodaySection() {
   }
 
   // ── Work Sessions ──────────────────────────────────────────────────────────
+  dayJwt = jwtToken; // cache JWT for navigation callbacks
+
+  // Initialize the date input to today's work-day date
+  const dayInput = document.getElementById("ws-day-input");
+  if (dayInput) dayInput.value = selectedWorkDate;
+
   await loadWorkSessions(jwtToken, true);
 
   // Wire Load More
@@ -640,6 +776,22 @@ function renderTodaySection() {
         case "cancel-delete":  if (row) exitDeleteMode(row, id); break;
         case "confirm-delete": if (row) confirmDelete(row, id, jwtToken); break;
       }
+    });
+  }
+
+  // ── Day navigation controls ────────────────────────────────────────────────
+  document.getElementById("ws-day-prev")?.addEventListener("click", () => {
+    navigateDay(jwtToken, -1, null);
+  });
+
+  document.getElementById("ws-day-next")?.addEventListener("click", () => {
+    navigateDay(jwtToken, +1, null);
+  });
+
+  if (dayInput) {
+    dayInput.addEventListener("change", () => {
+      const val = dayInput.value; // YYYY-MM-DD
+      if (val) navigateDay(jwtToken, 0, val);
     });
   }
 })();

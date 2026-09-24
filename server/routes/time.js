@@ -102,7 +102,9 @@ router.get("/status", async (req, res) => {
 
 // ── GET /api/time/entries ─────────────────────────────────────────────────────
 // List time entries for the authenticated user, newest-first.
-// Query params: ?limit=50&offset=0
+// Query params: ?limit=50&offset=0&from=ISO&to=ISO
+//   from: include entries with clocked_in >= from (ISO timestamp)
+//   to:   include entries with clocked_in <  to   (ISO timestamp)
 // Each entry includes duration_minutes (null if still open).
 router.get("/entries", async (req, res) => {
   const email = req.user.email;
@@ -114,8 +116,24 @@ router.get("/entries", async (req, res) => {
   let offset = parseInt(req.query.offset, 10);
   if (!Number.isFinite(offset) || offset < 0) offset = 0;
 
+  let from = req.query.from ? new Date(req.query.from) : null;
+  let to = req.query.to ? new Date(req.query.to) : null;
+  if (from && isNaN(from.getTime())) from = null;
+  if (to && isNaN(to.getTime())) to = null;
+
   try {
     const pool = getPool();
+
+    // Build parameterized query with optional date range
+    const conditions = ["user_email = $1"];
+    const params = [email];
+    if (from) { conditions.push(`clocked_in >= $${params.length + 1}`); params.push(from.toISOString()); }
+    if (to)   { conditions.push(`clocked_in < $${params.length + 1}`);  params.push(to.toISOString()); }
+    const whereClause = conditions.join(" AND ");
+    const limitIdx  = params.length + 1;
+    const offsetIdx = params.length + 2;
+    params.push(limit, offset);
+
     const [result, countResult] = await Promise.all([
       pool.query(
         `SELECT
@@ -128,14 +146,14 @@ router.get("/entries", async (req, res) => {
              ELSE NULL
            END AS duration_minutes
          FROM time_entries
-         WHERE user_email = $1
+         WHERE ${whereClause}
          ORDER BY clocked_in DESC
-         LIMIT $2 OFFSET $3`,
-        [email, limit, offset]
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params
       ),
       pool.query(
-        "SELECT COUNT(*)::int AS total FROM time_entries WHERE user_email = $1",
-        [email]
+        `SELECT COUNT(*)::int AS total FROM time_entries WHERE ${whereClause}`,
+        params.slice(0, params.length - 2) // exclude limit/offset
       ),
     ]);
 

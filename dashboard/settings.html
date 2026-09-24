@@ -50,9 +50,10 @@
   <section id="work-sessions-section">
     <h2>Work Sessions</h2>
     <div id="ws-today-section" style="margin-bottom:1.5rem;">
-      <div style="display:flex;align-items:baseline;gap:1rem;margin-bottom:0.6rem;">
-        <h3 style="margin:0;font-size:1rem;font-weight:600;color:#ccc;letter-spacing:.02em;">Today</h3>
-        <span style="font-size:0.875rem;color:#aaa;">Total: <strong id="ws-today-total" style="color:#e8e8e8;">—</strong></span>
+      <div class="ws-day-nav">
+        <button id="ws-day-prev" class="ws-day-nav-btn" title="Previous day" aria-label="Previous day">←</button>
+        <input type="date" id="ws-day-input" class="ws-day-date-input" aria-label="Select date">
+        <button id="ws-day-next" class="ws-day-nav-btn" title="Next day" aria-label="Next day">→</button>
       </div>
       <div class="work-sessions-table-wrap">
         <table class="work-sessions-table">
@@ -73,6 +74,10 @@
     </div>
 
     <div class="work-sessions-stats">
+      <div class="work-stat-box">
+        <div class="work-stat-label" id="ws-today-stat-label">Today</div>
+        <div class="work-stat-value" id="ws-hours-today">—</div>
+      </div>
       <div class="work-stat-box">
         <div class="work-stat-label">This Week</div>
         <div class="work-stat-value" id="ws-hours-week">—</div>
