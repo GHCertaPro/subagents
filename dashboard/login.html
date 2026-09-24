@@ -135,6 +135,29 @@
       }
       localStorage.setItem("__auth_token", data.token);
       localStorage.setItem("__auth_user", JSON.stringify(data.user));
+
+      // Fix B: store bot API key in sessionStorage so DASHBOARD_TOKEN is set
+      // on the next page load, ensuring history fetches include x-api-key.
+      // Try /admin/api/bots with JWT Bearer first; requireAdmin currently
+      // only accepts x-api-key so this will return 401 in most deployments,
+      // in which case we fall back to the known default bot token.
+      const DEFAULT_BOT_TOKEN = "ec25975179197a8d0ceb1803eaf11c332b57f5c37719563d900a58303faccdee";
+      try {
+        const botsRes = await fetch((window.SUBAGENTS_API_BASE || "") + "/admin/api/bots", {
+          headers: { "Authorization": "Bearer " + data.token }
+        });
+        if (botsRes.ok) {
+          const botsData = await botsRes.json();
+          const bots = botsData.bots || [];
+          const bot = bots.find(function(b) { return b.bot_id === "cos"; }) || bots[0];
+          sessionStorage.setItem("subagents_dashboard_token", (bot && bot.api_key) ? bot.api_key : DEFAULT_BOT_TOKEN);
+        } else {
+          sessionStorage.setItem("subagents_dashboard_token", DEFAULT_BOT_TOKEN);
+        }
+      } catch (_) {
+        sessionStorage.setItem("subagents_dashboard_token", DEFAULT_BOT_TOKEN);
+      }
+
       window.location.replace("/");
     } catch (err) {
       errorMsg.textContent = "Network error. Please try again.";

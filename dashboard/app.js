@@ -294,7 +294,16 @@ function renderHistory() {
     li.className = "empty-note";
     li.style.border = "none";
     li.style.background = "none";
-    li.textContent = historyState.loading ? "Loading…" : "No completed runs yet.";
+    // Fix A: if loading finished with an error, show it prominently instead
+    // of the generic "No completed runs yet." so it doesn't go unnoticed.
+    if (!historyState.loading && state.lastError) {
+      li.style.color = "#f66";
+      li.style.fontWeight = "bold";
+      li.style.padding = "12px 0";
+      li.textContent = `Error loading history: ${state.lastError}`;
+    } else {
+      li.textContent = historyState.loading ? "Loading\u2026" : "No completed runs yet.";
+    }
     els.historyList.appendChild(li);
   } else {
     for (const log of historyState.logs) {
@@ -349,11 +358,13 @@ async function loadInitialHistory() {
   renderHistory();
   try {
     const data = await fetchHistoryPage(0, HISTORY_INITIAL_LIMIT);
+    console.log('[history] fetch returned:', data.count, 'rows, total:', data.total);
     appendHistoryLogs(Array.isArray(data.logs) ? data.logs : []);
     historyState.total = Number.isFinite(data.total) ? data.total : historyState.logs.length;
     historyState.initialized = true;
     state.lastError = null;
   } catch (err) {
+    console.error('[history] fetch error:', err);
     state.lastError = err.message || String(err);
   }
   historyState.loading = false;
