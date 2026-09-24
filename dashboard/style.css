@@ -459,13 +459,14 @@ footer {
   text-align: right;
 }
 
-/* Right column entries list: show ~2 entries (~34px each), scroll for older ones */
+/* Right column entries list: exactly 2 rows (2 × 29px row-height + 4px container padding = 62px) */
 #time-tracker-log-col .time-entries-col {
-  max-height: 68px;   /* ~2 rows × ~34px */
+  max-height: 62px;   /* 2 rows × ~29px each + 4px padding */
   overflow-y: auto;
   border: none;
   background: transparent;
   padding: 2px 10px 2px 0;   /* right padding creates gap before scrollbar */
+  scroll-snap-type: y mandatory;
 }
 
 .clock-btn {
@@ -537,6 +538,7 @@ footer {
   border-bottom: 1px solid #1e1e1e;
   line-height: 1.4;
   text-align: right;
+  scroll-snap-align: start;
 }
 
 .time-entry-row:last-child {
