@@ -458,9 +458,9 @@ footer {
   min-height: 0;
 }
 
-/* Right column entries list: show ~2-3 entries, scroll for older ones */
+/* Right column entries list: show ~2 entries (~34px each), scroll for older ones */
 #time-tracker-log-col .time-entries-col {
-  max-height: 150px;
+  max-height: 68px;   /* ~2 rows × ~34px */
   overflow-y: auto;
   border: none;
   background: transparent;

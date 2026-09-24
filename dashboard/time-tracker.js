@@ -140,15 +140,17 @@
   }
 
   function renderEntries(entries) {
-    // Show the most recent entries regardless of date (no today-only filter).
-    // Server already returns newest-first; we just display all that came back.
-    const allEntries = entries || [];
+    // Filter to today's entries only (4 AM ET → 3:59 AM ET next day cutoff).
+    const cutoff = getTodayCutoff();
+    const todayEntries = (entries || []).filter(
+      (e) => new Date(e.clocked_in).getTime() >= cutoff.getTime()
+    );
 
-    if (allEntries.length === 0) {
-      listEl.innerHTML = '<div class="time-entries-empty">No time entries yet.</div>';
+    if (todayEntries.length === 0) {
+      listEl.innerHTML = '<div class="time-entries-empty">No entries yet today.</div>';
       return;
     }
-    listEl.innerHTML = allEntries
+    listEl.innerHTML = todayEntries
       .map((e) => {
         const isOpen = !e.clocked_out;
         const start = fmtDatetime(e.clocked_in);
@@ -184,7 +186,7 @@
 
   async function loadEntries() {
     try {
-      const res = await fetch(`${API}/api/time/entries?limit=5`, { headers: authHeaders() });
+      const res = await fetch(`${API}/api/time/entries?limit=20&from=${getTodayCutoff().toISOString()}`, { headers: authHeaders() });
       if (res.status === 401) {
         listEl.innerHTML = '<div class="time-entries-empty">Sign in to track time.</div>';
         return;
