@@ -605,6 +605,172 @@ footer {
   color: #9fdc9f;
 }
 
+/* --- Work Session edit / add / delete controls --- */
+
+.ws-sessions-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.ws-add-btn {
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 5px;
+  color: #aaa;
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ws-add-btn:hover {
+  border-color: #888;
+  color: #ccc;
+}
+
+.ws-add-form-wrap {
+  border: 1px solid #333;
+  background: #0d0d0d;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.ws-add-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ws-add-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ws-add-err {
+  color: #d77;
+  font-size: 0.74rem;
+  align-self: center;
+}
+
+.ws-dt-input {
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 0.8rem;
+  padding: 5px 8px;
+  font-family: inherit;
+}
+
+.ws-dt-input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+/* Small action buttons inside table rows */
+.ws-act-btn {
+  background: transparent;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #888;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ws-act-btn:hover:not(:disabled) {
+  border-color: #666;
+  color: #ccc;
+}
+
+.ws-act-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ws-act-btn--del:hover:not(:disabled) {
+  border-color: #a44;
+  color: #d77;
+}
+
+.ws-act-btn--save {
+  border-color: #3a5a3a;
+  color: #9fdc9f;
+}
+
+.ws-act-btn--save:hover:not(:disabled) {
+  border-color: #5a8a5a;
+  color: #b7ffb7;
+}
+
+.ws-act-btn--yes {
+  border-color: #7a3a3a;
+  color: #d77;
+}
+
+.ws-act-btn--yes:hover:not(:disabled) {
+  border-color: #a44;
+  color: #f99;
+}
+
+.ws-actions-cell {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+  padding: 4px 8px !important;
+}
+
+.ws-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 4px 0;
+}
+
+.ws-edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ws-delete-confirm {
+  color: #d77 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-inline-err {
+  color: #d77;
+  font-size: 0.72rem;
+}
+
+/* Slightly taller table to accommodate inline edit rows */
+.work-sessions-table-wrap {
+  max-height: 380px;
+}
+
 /* --- History detail page (dashboard/history-detail.html) --- */
 
 #detail-view {

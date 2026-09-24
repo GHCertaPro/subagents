@@ -59,6 +59,22 @@
         <div class="work-stat-value" id="ws-hours-month">—</div>
       </div>
     </div>
+    <div class="ws-sessions-header">
+      <button type="button" id="ws-add-entry-btn" class="ws-add-btn">+ Add Entry</button>
+    </div>
+    <div id="ws-add-form" class="ws-add-form-wrap" style="display:none;">
+      <label class="ws-add-label">Clock In
+        <input type="datetime-local" id="ws-add-clock-in" class="ws-dt-input">
+      </label>
+      <label class="ws-add-label">Clock Out
+        <input type="datetime-local" id="ws-add-clock-out" class="ws-dt-input">
+      </label>
+      <div class="ws-add-actions">
+        <button type="button" id="ws-add-submit" class="ws-act-btn ws-act-btn--save">Add</button>
+        <button type="button" id="ws-add-cancel" class="ws-act-btn">Cancel</button>
+      </div>
+      <span class="ws-add-err"></span>
+    </div>
     <div class="work-sessions-table-wrap">
       <table class="work-sessions-table">
         <thead>
@@ -67,10 +83,11 @@
             <th>Clock In</th>
             <th>Clock Out</th>
             <th>Duration</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="ws-table-body">
-          <tr><td colspan="4" style="color:#555; font-style:italic; padding:12px;">Loading&hellip;</td></tr>
+          <tr><td colspan="5" style="color:#555; font-style:italic; padding:12px;">Loading&hellip;</td></tr>
         </tbody>
       </table>
     </div>

@@ -150,4 +150,127 @@ router.get("/entries", async (req, res) => {
   }
 });
 
+// ── POST /api/time/entries/manual ────────────────────────────────────────────
+// Manually add a complete (clocked-in + clocked-out) time entry.
+router.post("/entries/manual", async (req, res) => {
+  const email = req.user.email;
+  const { clocked_in, clocked_out } = req.body ?? {};
+
+  if (!clocked_in || !clocked_out) {
+    return res.status(400).json({ error: "clocked_in and clocked_out are required." });
+  }
+
+  const cinDate = new Date(clocked_in);
+  const coutDate = new Date(clocked_out);
+
+  if (isNaN(cinDate.getTime())) return res.status(400).json({ error: "Invalid clocked_in date." });
+  if (isNaN(coutDate.getTime())) return res.status(400).json({ error: "Invalid clocked_out date." });
+  if (coutDate <= cinDate) {
+    return res.status(400).json({ error: "clocked_out must be after clocked_in." });
+  }
+
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `INSERT INTO time_entries (user_email, clocked_in, clocked_out)
+       VALUES ($1, $2, $3)
+       RETURNING
+         id,
+         clocked_in,
+         clocked_out,
+         ROUND(EXTRACT(EPOCH FROM (clocked_out - clocked_in)) / 60)::int AS duration_minutes`,
+      [email, cinDate.toISOString(), coutDate.toISOString()]
+    );
+    return res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("[POST /api/time/entries/manual] error:", err.message);
+    return res.status(500).json({ error: "Failed to add entry." });
+  }
+});
+
+// ── PUT /api/time/entries/:id ─────────────────────────────────────────────────
+// Edit an existing time entry (owner-only).
+// Body: { clocked_in?: ISO, clocked_out?: ISO | null }
+router.put("/entries/:id", async (req, res) => {
+  const email = req.user.email;
+  const { id } = req.params;
+  const { clocked_in, clocked_out } = req.body ?? {};
+
+  if (clocked_in == null && !("clocked_out" in (req.body ?? {}))) {
+    return res.status(400).json({ error: "At least one of clocked_in or clocked_out must be provided." });
+  }
+
+  try {
+    const pool = getPool();
+
+    // Verify ownership and get current values
+    const existing = await pool.query(
+      "SELECT id, user_email, clocked_in, clocked_out FROM time_entries WHERE id = $1",
+      [id]
+    );
+    if (existing.rowCount === 0) return res.status(404).json({ error: "Entry not found." });
+    if (existing.rows[0].user_email !== email) return res.status(403).json({ error: "Forbidden." });
+
+    const entry = existing.rows[0];
+
+    // Resolve new values (fall back to existing)
+    const newCin = clocked_in != null ? new Date(clocked_in) : new Date(entry.clocked_in);
+    const newCout = "clocked_out" in (req.body ?? {})
+      ? (clocked_out != null ? new Date(clocked_out) : null)
+      : (entry.clocked_out ? new Date(entry.clocked_out) : null);
+
+    if (isNaN(newCin.getTime())) return res.status(400).json({ error: "Invalid clocked_in date." });
+    if (newCout != null && isNaN(newCout.getTime())) {
+      return res.status(400).json({ error: "Invalid clocked_out date." });
+    }
+    if (newCout != null && newCout <= newCin) {
+      return res.status(400).json({ error: "clocked_out must be after clocked_in." });
+    }
+
+    const result = await pool.query(
+      `UPDATE time_entries
+       SET clocked_in = $1, clocked_out = $2
+       WHERE id = $3
+       RETURNING
+         id,
+         clocked_in,
+         clocked_out,
+         CASE
+           WHEN clocked_out IS NOT NULL
+           THEN ROUND(EXTRACT(EPOCH FROM (clocked_out - clocked_in)) / 60)::int
+           ELSE NULL
+         END AS duration_minutes`,
+      [newCin.toISOString(), newCout ? newCout.toISOString() : null, id]
+    );
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[PUT /api/time/entries/:id] error:", err.message);
+    return res.status(500).json({ error: "Failed to update entry." });
+  }
+});
+
+// ── DELETE /api/time/entries/:id ──────────────────────────────────────────────
+// Delete a time entry (owner-only).
+router.delete("/entries/:id", async (req, res) => {
+  const email = req.user.email;
+  const { id } = req.params;
+
+  try {
+    const pool = getPool();
+
+    const existing = await pool.query(
+      "SELECT user_email FROM time_entries WHERE id = $1",
+      [id]
+    );
+    if (existing.rowCount === 0) return res.status(404).json({ error: "Entry not found." });
+    if (existing.rows[0].user_email !== email) return res.status(403).json({ error: "Forbidden." });
+
+    await pool.query("DELETE FROM time_entries WHERE id = $1", [id]);
+    return res.json({ deleted: true });
+  } catch (err) {
+    console.error("[DELETE /api/time/entries/:id] error:", err.message);
+    return res.status(500).json({ error: "Failed to delete entry." });
+  }
+});
+
 export default router;
