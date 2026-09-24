@@ -376,7 +376,9 @@ section > h2 {
 #live-view,
 #history-view,
 #detail-view,
+#settings-view,
 #admin-panel,
+#auth-gate,
 #token-gate {
   flex: 1;
 }
