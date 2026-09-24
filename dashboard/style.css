@@ -157,8 +157,8 @@ section > h2 {
   border: 1px solid #333;
   background: #0a0a0a;
   border-radius: 8px;
-  padding: 16px;
-  min-height: 110px;
+  padding: 10px 14px;
+  min-height: 78px;
   display: flex;
   flex-direction: column;
   justify-content: center;

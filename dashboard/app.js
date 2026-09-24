@@ -171,7 +171,6 @@ function renderRunningSlot(log) {
   div.innerHTML = `
     <div class="task-name">${escapeHtml(formatTaskName(log.task_name))}</div>
     <div class="elapsed" data-started-at="${escapeHtml(log.started_at)}">running ${elapsed}</div>
-    <div class="sub-meta">${escapeHtml(log.requested_by || "")}</div>
   `;
   div.dataset.id = log.id;
   return div;
