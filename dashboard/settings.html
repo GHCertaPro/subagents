@@ -49,6 +49,29 @@
 
   <section id="work-sessions-section">
     <h2>Work Sessions</h2>
+    <div id="ws-today-section" style="margin-bottom:1.5rem;">
+      <div style="display:flex;align-items:baseline;gap:1rem;margin-bottom:0.6rem;">
+        <h3 style="margin:0;font-size:1rem;font-weight:600;color:#ccc;letter-spacing:.02em;">Today</h3>
+        <span style="font-size:0.875rem;color:#aaa;">Total: <strong id="ws-today-total" style="color:#e8e8e8;">—</strong></span>
+      </div>
+      <div class="work-sessions-table-wrap">
+        <table class="work-sessions-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Clock In</th>
+              <th>Clock Out</th>
+              <th>Duration</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ws-today-tbody">
+            <tr><td colspan="5" style="color:#555; font-style:italic; padding:12px;">Loading&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="work-sessions-stats">
       <div class="work-stat-box">
         <div class="work-stat-label">This Week</div>

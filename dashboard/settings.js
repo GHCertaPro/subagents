@@ -51,6 +51,37 @@ function fmtHours(totalMins) {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+/**
+ * Return the start-of-work-day cutoff Date.
+ * A work day starts at 3:00 AM America/New_York wall-clock time.
+ * Copied from dashboard/time-tracker.js — keep in sync if that helper changes.
+ */
+function getTodayCutoff() {
+  const now = new Date();
+  const etFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(
+    etFormatter.formatToParts(now).map((p) => [p.type, p.value])
+  );
+  // Determine ET offset by comparing UTC now to ET local parse
+  const etOffsetMs =
+    now.getTime() -
+    new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime();
+  // Build 3:00 AM on the current ET calendar date, shifted to UTC
+  const cutoffLocal = new Date(`${parts.year}-${parts.month}-${parts.day}T03:00:00`);
+  const cutoff = new Date(cutoffLocal.getTime() + etOffsetMs);
+  // If we haven't hit 3 AM ET yet today, slide back 24 h to yesterday's 3 AM ET
+  if (now < cutoff) cutoff.setDate(cutoff.getDate() - 1);
+  return cutoff;
+}
+
 /** Get Monday 00:00:00 of the current week in local time */
 function getMondayOfWeek() {
   const now = new Date();
@@ -457,6 +488,44 @@ function computeAndRenderStats() {
   const monthEl = document.getElementById("ws-hours-month");
   if (weekEl) weekEl.textContent = fmtHours(weekMins);
   if (monthEl) monthEl.textContent = fmtHours(monthMins);
+
+  renderTodaySection();
+}
+
+/** Render the Today subsection: total + table of today's entries. */
+function renderTodaySection() {
+  const cutoff = getTodayCutoff();
+  const now = new Date();
+
+  // Filter wsAllEntries to today's work day (clocked_in >= cutoff)
+  const todayEntries = wsAllEntries.filter((e) => new Date(e.clocked_in) >= cutoff);
+
+  // Compute today total: closed duration_minutes + elapsed for any open entry
+  let todayMins = 0;
+  for (const e of todayEntries) {
+    if (e.clocked_out && e.duration_minutes != null) {
+      todayMins += e.duration_minutes;
+    } else if (!e.clocked_out) {
+      todayMins += Math.max(0, Math.floor((now - new Date(e.clocked_in)) / 60000));
+    }
+  }
+
+  const totalEl = document.getElementById("ws-today-total");
+  if (totalEl) totalEl.textContent = fmtHours(todayMins);
+
+  const todayTbody = document.getElementById("ws-today-tbody");
+  if (!todayTbody) return;
+
+  // Don't clobber a row that is currently being edited/deleted
+  if (todayTbody.querySelector(".ws-editing, .ws-confirming-delete")) return;
+
+  if (todayEntries.length === 0) {
+    todayTbody.innerHTML =
+      '<tr><td colspan="5" style="color:#555;font-style:italic;padding:12px;">No sessions today.</td></tr>';
+    return;
+  }
+
+  todayTbody.innerHTML = todayEntries.map((e) => renderEntryRow(e)).join("");
 }
 
 // ── Auth gate + page init ─────────────────────────────────────────────────────
@@ -541,6 +610,27 @@ function computeAndRenderStats() {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       const row = tbody.querySelector(`tr[data-id="${id}"]`);
+
+      switch (action) {
+        case "edit":           if (row) enterEditMode(row, id); break;
+        case "cancel-edit":    if (row) exitEditMode(row, id); break;
+        case "save-edit":      if (row) saveEdit(row, id, jwtToken); break;
+        case "delete":         if (row) enterDeleteMode(row, id); break;
+        case "cancel-delete":  if (row) exitDeleteMode(row, id); break;
+        case "confirm-delete": if (row) confirmDelete(row, id, jwtToken); break;
+      }
+    });
+  }
+
+  // Wire Today table via event delegation — same actions, same state, separate tbody
+  const todayTbody = document.getElementById("ws-today-tbody");
+  if (todayTbody) {
+    todayTbody.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const row = todayTbody.querySelector(`tr[data-id="${id}"]`);
 
       switch (action) {
         case "edit":           if (row) enterEditMode(row, id); break;
