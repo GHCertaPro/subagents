@@ -44,7 +44,7 @@
 
   /** Compute elapsed minutes between a Date and now. */
   function elapsedMins(from) {
-    return Math.floor((Date.now() - new Date(from).getTime()) / 60000);
+    return Math.max(0, Math.floor((Date.now() - new Date(from).getTime()) / 60000));
   }
 
   // ── State ──────────────────────────────────────────────────────────────────
