@@ -408,6 +408,201 @@ footer {
   font-size: 0.9rem;
 }
 
+/* --- Time Tracker section (index.html bottom) --- */
+
+#time-tracker {
+  margin-top: 8px;
+}
+
+.time-tracker-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .time-tracker-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.time-clock-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.clock-btn {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 24px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.clock-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.clock-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.clock-btn.clock-in {
+  background: #1a5c1a;
+  color: #b7ffb7;
+  border: 1px solid #2d8a2d;
+}
+
+.clock-btn.clock-out {
+  background: #5c1a1a;
+  color: #ffb3b3;
+  border: 1px solid #8a2d2d;
+}
+
+.clock-elapsed {
+  font-size: 0.85rem;
+  color: #9fdc9f;
+  letter-spacing: 0.02em;
+}
+
+.time-entries-col {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.time-entries-col::-webkit-scrollbar {
+  width: 6px;
+}
+.time-entries-col::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+.time-entries-col::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.time-entry-row {
+  font-size: 0.78rem;
+  color: #ccc;
+  padding: 5px 0;
+  border-bottom: 1px solid #1e1e1e;
+  line-height: 1.4;
+}
+
+.time-entry-row:last-child {
+  border-bottom: none;
+}
+
+.time-entry-row.open {
+  color: #9fdc9f;
+}
+
+.time-entries-empty {
+  font-size: 0.8rem;
+  color: #555;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+/* --- Work Sessions table in Settings --- */
+
+.work-sessions-stats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.work-stat-box {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 6px;
+  padding: 12px 18px;
+  min-width: 140px;
+}
+
+.work-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.work-stat-value {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #b7ffb7;
+}
+
+.work-sessions-table-wrap {
+  border: 1px solid #333;
+  background: #0a0a0a;
+  border-radius: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.work-sessions-table-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+.work-sessions-table-wrap::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+.work-sessions-table-wrap::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.work-sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.work-sessions-table th {
+  text-align: left;
+  padding: 8px 12px;
+  color: #888;
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  background: #0a0a0a;
+}
+
+.work-sessions-table td {
+  padding: 8px 12px;
+  color: #ccc;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.work-sessions-table tr:last-child td {
+  border-bottom: none;
+}
+
+.work-sessions-table tr.open-entry td {
+  color: #9fdc9f;
+}
+
 /* --- History detail page (dashboard/history-detail.html) --- */
 
 #detail-view {

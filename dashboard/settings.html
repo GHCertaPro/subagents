@@ -46,6 +46,36 @@
     <h2>Session</h2>
     <button type="button" id="logout-btn" class="load-more-btn" style="margin:0;">Sign Out</button>
   </section>
+
+  <section id="work-sessions-section">
+    <h2>Work Sessions</h2>
+    <div class="work-sessions-stats">
+      <div class="work-stat-box">
+        <div class="work-stat-label">This Week</div>
+        <div class="work-stat-value" id="ws-hours-week">—</div>
+      </div>
+      <div class="work-stat-box">
+        <div class="work-stat-label">This Month</div>
+        <div class="work-stat-value" id="ws-hours-month">—</div>
+      </div>
+    </div>
+    <div class="work-sessions-table-wrap">
+      <table class="work-sessions-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Clock In</th>
+            <th>Clock Out</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody id="ws-table-body">
+          <tr><td colspan="4" style="color:#555; font-style:italic; padding:12px;">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" id="ws-load-more" class="load-more-btn" style="display:none;">Load More</button>
+  </section>
 </div>
 
 <script src="config.js"></script>
