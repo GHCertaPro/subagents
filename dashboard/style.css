@@ -456,13 +456,12 @@ footer {
 #time-tracker-log-col {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  max-height: 120px;
 }
 
+/* Right column entries list: show ~2-3 entries, scroll for older ones */
 #time-tracker-log-col .time-entries-col {
-  max-height: none;
-  overflow-y: visible;
+  max-height: 150px;
+  overflow-y: auto;
   border: none;
   background: transparent;
   padding: 2px 0;

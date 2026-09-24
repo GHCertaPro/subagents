@@ -140,17 +140,15 @@
   }
 
   function renderEntries(entries) {
-    // Filter to current work-day only (day boundary = 3 AM ET)
-    const cutoff = getTodayCutoff();
-    const todayEntries = (entries || []).filter(
-      (e) => new Date(e.clocked_in).getTime() >= cutoff.getTime()
-    );
+    // Show the most recent entries regardless of date (no today-only filter).
+    // Server already returns newest-first; we just display all that came back.
+    const allEntries = entries || [];
 
-    if (todayEntries.length === 0) {
-      listEl.innerHTML = '<div class="time-entries-empty">No time entries yet today.</div>';
+    if (allEntries.length === 0) {
+      listEl.innerHTML = '<div class="time-entries-empty">No time entries yet.</div>';
       return;
     }
-    listEl.innerHTML = todayEntries
+    listEl.innerHTML = allEntries
       .map((e) => {
         const isOpen = !e.clocked_out;
         const start = fmtDatetime(e.clocked_in);
@@ -174,24 +172,24 @@
     try {
       const res = await fetch(`${API}/api/time/status`, { headers: authHeaders() });
       if (res.status === 401) return; // not logged in — tracker hidden or silent
-      if (!res.ok) return;
+      if (!res.ok) { renderButton(); return; } // ensure button is always in a known enabled state
       const data = await res.json();
       clockedInEntry = data.clocked_in ? data.entry : null;
       renderButton();
       startElapsedTick();
     } catch (_) {
-      // ignore network errors silently for this widget
+      renderButton(); // ensure button is enabled even on network error
     }
   }
 
   async function loadEntries() {
     try {
-      const res = await fetch(`${API}/api/time/entries?limit=20`, { headers: authHeaders() });
+      const res = await fetch(`${API}/api/time/entries?limit=5`, { headers: authHeaders() });
       if (res.status === 401) {
         listEl.innerHTML = '<div class="time-entries-empty">Sign in to track time.</div>';
         return;
       }
-      if (!res.ok) return;
+      if (!res.ok) { listEl.innerHTML = '<div class="time-entries-empty">Could not load entries.</div>'; return; }
       const data = await res.json();
       renderEntries(data.entries);
     } catch (_) {
