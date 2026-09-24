@@ -4,17 +4,20 @@
   box-sizing: border-box;
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background: #000;
-  color: #fff;
-  min-height: 100%;
+html {
+  height: 100%;
 }
 
 body {
-  font-family: "SF Mono", "Menlo", "Consolas", "Courier New", monospace;
+  margin: 0;
   padding: 24px;
+  background: #000;
+  color: #fff;
+  font-family: "SF Mono", "Menlo", "Consolas", "Courier New", monospace;
+  /* Sticky footer: flex column so footer is always pushed to viewport bottom */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 header {
@@ -369,10 +372,21 @@ section > h2 {
   display: block;
 }
 
+/* Main content areas grow to fill remaining space, pushing footer to bottom */
+#live-view,
+#history-view,
+#detail-view,
+#admin-panel,
+#token-gate {
+  flex: 1;
+}
+
 footer {
   color: #555;
   font-size: 0.75rem;
   margin-top: 40px;
+  padding-top: 12px;
+  border-top: 1px solid #111;
 }
 
 /* --- Settings page --- */
