@@ -47,6 +47,49 @@
     return Math.max(0, Math.floor((Date.now() - new Date(from).getTime()) / 60000));
   }
 
+  /**
+   * Return the start-of-work-day cutoff timestamp (ms).
+   * A "work day" starts at 3:00 AM America/New_York wall-clock time.
+   * If the current ET time is before 3 AM, the cutoff is yesterday's 3 AM ET.
+   */
+  function getTodayCutoff() {
+    const now = new Date();
+    // Get current ET date+hour components
+    const etFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = Object.fromEntries(
+      etFormatter.formatToParts(now).map((p) => [p.type, p.value])
+    );
+    const etHour = parseInt(parts.hour, 10);
+
+    // Determine the ET offset by comparing UTC now to ET "local" parse
+    const etOffsetMs =
+      now.getTime() -
+      new Date(
+        now.toLocaleString("en-US", { timeZone: "America/New_York" })
+      ).getTime();
+
+    // Build "3:00 AM" on the current ET calendar date
+    const cutoffLocal = new Date(
+      `${parts.year}-${parts.month}-${parts.day}T03:00:00`
+    );
+    // Shift from ET wall clock to UTC
+    const cutoff = new Date(cutoffLocal.getTime() + etOffsetMs);
+
+    // If we haven't hit 3 AM ET yet today, slide back 24 h to yesterday's 3 AM ET
+    if (now < cutoff) {
+      cutoff.setDate(cutoff.getDate() - 1);
+    }
+    return cutoff;
+  }
+
   // ── State ──────────────────────────────────────────────────────────────────
 
   let clockedInEntry = null; // null or { id, clocked_in, ... } if open
@@ -97,11 +140,17 @@
   }
 
   function renderEntries(entries) {
-    if (!entries || entries.length === 0) {
-      listEl.innerHTML = '<div class="time-entries-empty">No time entries yet.</div>';
+    // Filter to current work-day only (day boundary = 3 AM ET)
+    const cutoff = getTodayCutoff();
+    const todayEntries = (entries || []).filter(
+      (e) => new Date(e.clocked_in).getTime() >= cutoff.getTime()
+    );
+
+    if (todayEntries.length === 0) {
+      listEl.innerHTML = '<div class="time-entries-empty">No time entries yet today.</div>';
       return;
     }
-    listEl.innerHTML = entries
+    listEl.innerHTML = todayEntries
       .map((e) => {
         const isOpen = !e.clocked_out;
         const start = fmtDatetime(e.clocked_in);
