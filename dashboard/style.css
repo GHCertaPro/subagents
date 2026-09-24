@@ -436,7 +436,7 @@ footer {
   align-items: stretch;
   gap: 16px;
   padding: 10px 20px;
-  background: #0d0d1a;
+  background: transparent;
   border-top: 1px solid #2a2a4a;
   z-index: 100;
   color: #ccc;
@@ -456,6 +456,7 @@ footer {
 #time-tracker-log-col {
   flex: 1;
   min-height: 0;
+  text-align: right;
 }
 
 /* Right column entries list: show ~2 entries (~34px each), scroll for older ones */
@@ -534,6 +535,7 @@ footer {
   padding: 5px 0;
   border-bottom: 1px solid #1e1e1e;
   line-height: 1.4;
+  text-align: right;
 }
 
 .time-entry-row:last-child {
