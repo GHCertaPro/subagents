@@ -18,7 +18,7 @@ import { getPool } from "./db.js";
 import jwt from "jsonwebtoken";
 
 // ── In-memory cache for DB-backed token lookups ──────────────────────────────
-// Key: api_key string → Value: { bot_id, display_name, cachedAt }
+// Key: api_key string → Value: { bot_id, display_name, user_id, cachedAt }
 const tokenCache = new Map();
 const CACHE_TTL_MS = 60_000; // 60 seconds
 
@@ -32,8 +32,8 @@ function getCached(apiKey) {
   return entry;
 }
 
-function setCached(apiKey, botId, displayName) {
-  tokenCache.set(apiKey, { bot_id: botId, display_name: displayName, cachedAt: Date.now() });
+function setCached(apiKey, botId, displayName, userId) {
+  tokenCache.set(apiKey, { bot_id: botId, display_name: displayName, user_id: userId ?? null, cachedAt: Date.now() });
 }
 
 // ── BOT_KEYS env fallback (backward compat during migration window) ──────────
@@ -68,6 +68,7 @@ export async function requireApiKey(req, res, next) {
   if (cached) {
     req.bot_id = cached.bot_id;
     req.displayName = cached.display_name;
+    req.user_id = cached.user_id ?? null;
     return next();
   }
 
@@ -75,14 +76,15 @@ export async function requireApiKey(req, res, next) {
   try {
     const pool = getPool();
     const result = await pool.query(
-      "SELECT bot_id, display_name FROM bot_tokens WHERE api_key = $1",
+      "SELECT bot_id, display_name, user_id FROM bot_tokens WHERE api_key = $1",
       [provided]
     );
     if (result.rowCount > 0) {
-      const { bot_id, display_name } = result.rows[0];
-      setCached(provided, bot_id, display_name);
+      const { bot_id, display_name, user_id } = result.rows[0];
+      setCached(provided, bot_id, display_name, user_id);
       req.bot_id = bot_id;
       req.displayName = display_name;
+      req.user_id = user_id ?? null;  // may be null for system tokens
       return next();
     }
   } catch (err) {
@@ -97,6 +99,7 @@ export async function requireApiKey(req, res, next) {
     if (botId) {
       req.bot_id = botId;
       req.displayName = null;
+      req.user_id = null;  // env-var fallback tokens have no user association
       return next();
     }
   }

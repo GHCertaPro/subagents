@@ -41,16 +41,17 @@ router.post("/", requireApiKey, async (req, res) => {
     });
   }
 
-  // bot_id comes from the authenticated key, never from the request body
+  // bot_id and user_id come from the authenticated key, never from the request body
   const botId = req.bot_id;
+  const userId = req.user_id ?? null;
 
   try {
     const pool = getPool();
     const result = await pool.query(
       `INSERT INTO subagent_logs
-         (task_name, status, queued_at, started_at, notes, summary, requested_by, metadata, bot_id)
+         (task_name, status, queued_at, started_at, notes, summary, requested_by, metadata, bot_id, user_id)
        VALUES
-         ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, COALESCE($8, '{}'::jsonb), $9)
+         ($1, $2, COALESCE($3, now()), $4, $5, $6, $7, COALESCE($8, '{}'::jsonb), $9, $10)
        RETURNING *`,
       [
         task_name,
@@ -62,6 +63,7 @@ router.post("/", requireApiKey, async (req, res) => {
         requested_by ?? null,
         metadata ? JSON.stringify(metadata) : null,
         botId ?? null,
+        userId,
       ]
     );
     return res.status(201).json(result.rows[0]);
@@ -190,20 +192,23 @@ router.patch("/:id", requireApiKey, async (req, res) => {
 router.get("/", async (req, res) => {
   const { status, task_name } = req.query;
 
-  // If caller supplies a valid x-api-key, resolve bot_id from the token table
-  // and force-filter to that bot (user isolation). Ignore any ?bot_id= param.
+  // If caller supplies a valid x-api-key, resolve bot_id AND user_id from the
+  // token table and force-filter to that user's logs (user isolation).
+  // Ignore any ?bot_id= param when the key is present.
   let bot_id = req.query.bot_id;
+  let resolvedUserId = null;
   const apiKey = req.get("x-api-key");
   if (apiKey) {
     try {
       const pool = getPool();
       const tokenRow = await pool.query(
-        "SELECT bot_id FROM bot_tokens WHERE api_key = $1",
+        "SELECT bot_id, user_id FROM bot_tokens WHERE api_key = $1",
         [apiKey]
       );
       if (tokenRow.rowCount > 0) {
         // Key resolved — override bot_id with the token's bot
         bot_id = tokenRow.rows[0].bot_id;
+        resolvedUserId = tokenRow.rows[0].user_id ?? null;
       } else {
         // Key provided but not found — try BOT_KEYS env fallback
         const raw = process.env.BOT_KEYS;
@@ -212,6 +217,7 @@ router.get("/", async (req, res) => {
             const botKeys = JSON.parse(raw);
             const resolved = Object.keys(botKeys).find((id) => botKeys[id] === apiKey);
             if (resolved) bot_id = resolved;
+            // env-var fallback tokens have no user association
           } catch { /* ignore */ }
         }
       }
@@ -264,6 +270,13 @@ router.get("/", async (req, res) => {
   if (bot_id !== undefined) {
     clauses.push(`bot_id = $${i++}`);
     values.push(String(bot_id).trim());
+  }
+
+  // If the token has a user_id, filter to that user's logs only.
+  // A system token (user_id = null on the token) sees all rows — backwards compat.
+  if (resolvedUserId !== null && resolvedUserId !== undefined) {
+    clauses.push(`user_id = $${i++}`);
+    values.push(resolvedUserId);
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";

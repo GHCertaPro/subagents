@@ -5,10 +5,12 @@
 //   POST /api/auth/login         — email + password → JWT
 //   GET  /api/auth/me            — verify JWT, return user info
 
+import crypto from "node:crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { getPool } from "../db.js";
+import { verifyToken } from "../auth.js";
 
 const router = Router();
 
@@ -91,11 +93,25 @@ router.post("/invite/redeem", async (req, res) => {
       [user.id, invite.id]
     );
 
+    // Create a personal bot_token for the new user
+    const personalApiKey = crypto.randomBytes(32).toString("hex");
+    const emailSlug = email.trim().toLowerCase().split("@")[0].replace(/[^a-z0-9]+/g, "-");
+    const personalBotId = `${emailSlug}-${crypto.randomBytes(2).toString("hex")}`;
+    await pool.query(
+      `INSERT INTO bot_tokens (bot_id, api_key, display_name, user_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (bot_id) DO NOTHING`,
+      [personalBotId, personalApiKey, `${email.trim().toLowerCase()}'s token`, user.id]
+    );
+    // Set the user's default_bot_id
+    await pool.query("UPDATE users SET default_bot_id = $1 WHERE id = $2", [personalBotId, user.id]);
+
     const token = signToken(user);
 
     return res.status(201).json({
       token,
       user: { id: user.id, email: user.email, role: user.role },
+      bot_token: personalApiKey,
     });
   } catch (err) {
     console.error("[POST /api/auth/invite/redeem] error:", err.message);
@@ -135,9 +151,17 @@ router.post("/login", async (req, res) => {
 
     const token = signToken(user);
 
+    // Fetch the user's personal bot token (linked via user_id on bot_tokens)
+    const botTokenResult = await pool.query(
+      "SELECT api_key, bot_id FROM bot_tokens WHERE user_id = $1 LIMIT 1",
+      [user.id]
+    );
+    const userBotToken = botTokenResult.rows[0]?.api_key ?? null;
+
     return res.json({
       token,
       user: { id: user.id, email: user.email, role: user.role },
+      bot_token: userBotToken,
     });
   } catch (err) {
     console.error("[POST /api/auth/login] error:", err.message);
@@ -160,6 +184,28 @@ router.get("/me", async (req, res) => {
     return res.json({ id: payload.id, email: payload.email, role: payload.role });
   } catch (err) {
     return res.status(401).json({ error: "Invalid or expired token." });
+  }
+});
+
+// ── GET /api/auth/me/token ────────────────────────────────────────────────────
+// Requires Authorization: Bearer <jwt>
+// Returns the user's personal bot token.
+// { bot_token: <api_key or null>, bot_id: <bot_id or null> }
+router.get("/me/token", verifyToken, async (req, res) => {
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      "SELECT api_key, bot_id FROM bot_tokens WHERE user_id = $1 LIMIT 1",
+      [req.user.id]
+    );
+    const row = result.rows[0];
+    return res.json({
+      bot_token: row?.api_key ?? null,
+      bot_id: row?.bot_id ?? null,
+    });
+  } catch (err) {
+    console.error("[GET /api/auth/me/token] error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch bot token." });
   }
 });
 
