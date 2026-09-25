@@ -584,6 +584,11 @@ footer {
   color: #fff;
 }
 
+/* Push the inline Add Entry button to the far right of the day-nav row */
+.ws-day-nav .ws-add-btn {
+  margin-left: auto;
+}
+
 .ws-day-date-input {
   background: #1a1a1a;
   border: 1px solid #444;

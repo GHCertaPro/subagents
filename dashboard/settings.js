@@ -415,24 +415,14 @@ async function submitAddForm(jwt) {
     }
     wsTotal++;
 
-    // Insert row into table in chronological order (newest first)
-    const tbody = document.getElementById("ws-table-body");
-    if (tbody) {
-      // Remove placeholder row if present
-      const placeholder = tbody.querySelector("tr:not([data-id])");
-      if (placeholder) placeholder.remove();
-
-      const newRowHtml = renderEntryRow(newEntry);
-      const existingRows = Array.from(tbody.querySelectorAll("tr[data-id]"));
-      const insertBefore = existingRows.find((r) => {
-        const e = wsEntriesMap[r.dataset.id];
-        return e && new Date(e.clocked_in) < newDate;
-      });
-
-      if (insertBefore) {
-        insertBefore.insertAdjacentHTML("beforebegin", newRowHtml);
+    // Also insert into selectedDayEntries if it falls within the selected work day
+    const { start: dayStart, end: dayEnd } = getDayCutoffs(selectedWorkDate);
+    if (newDate >= dayStart && newDate < dayEnd) {
+      const insertDayIdx = selectedDayEntries.findIndex((e) => new Date(e.clocked_in) < newDate);
+      if (insertDayIdx === -1) {
+        selectedDayEntries.push(newEntry);
       } else {
-        tbody.insertAdjacentHTML("beforeend", newRowHtml);
+        selectedDayEntries.splice(insertDayIdx, 0, newEntry);
       }
     }
 
@@ -720,15 +710,6 @@ function renderTodaySection() {
   if (dayInput) dayInput.value = selectedWorkDate;
 
   await loadWorkSessions(jwtToken, true);
-
-  // Wire Load More
-  const loadMoreBtn = document.getElementById("ws-load-more");
-  if (loadMoreBtn) {
-    loadMoreBtn.addEventListener("click", async () => {
-      loadMoreBtn.disabled = true;
-      await loadWorkSessions(jwtToken, false);
-    });
-  }
 
   // Wire Add Entry button
   document.getElementById("ws-add-entry-btn")?.addEventListener("click", showAddForm);

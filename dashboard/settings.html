@@ -54,6 +54,20 @@
         <button id="ws-day-prev" class="ws-day-nav-btn" title="Previous day" aria-label="Previous day">←</button>
         <input type="date" id="ws-day-input" class="ws-day-date-input" aria-label="Select date">
         <button id="ws-day-next" class="ws-day-nav-btn" title="Next day" aria-label="Next day">→</button>
+        <button type="button" id="ws-add-entry-btn" class="ws-add-btn">+ Add Entry</button>
+      </div>
+      <div id="ws-add-form" class="ws-add-form-wrap" style="display:none;">
+        <label class="ws-add-label">Clock In
+          <input type="datetime-local" id="ws-add-clock-in" class="ws-dt-input">
+        </label>
+        <label class="ws-add-label">Clock Out
+          <input type="datetime-local" id="ws-add-clock-out" class="ws-dt-input">
+        </label>
+        <div class="ws-add-actions">
+          <button type="button" id="ws-add-submit" class="ws-act-btn ws-act-btn--save">Add</button>
+          <button type="button" id="ws-add-cancel" class="ws-act-btn">Cancel</button>
+        </div>
+        <span class="ws-add-err"></span>
       </div>
       <div class="work-sessions-table-wrap">
         <table class="work-sessions-table">
@@ -87,39 +101,6 @@
         <div class="work-stat-value" id="ws-hours-month">—</div>
       </div>
     </div>
-    <div class="ws-sessions-header">
-      <button type="button" id="ws-add-entry-btn" class="ws-add-btn">+ Add Entry</button>
-    </div>
-    <div id="ws-add-form" class="ws-add-form-wrap" style="display:none;">
-      <label class="ws-add-label">Clock In
-        <input type="datetime-local" id="ws-add-clock-in" class="ws-dt-input">
-      </label>
-      <label class="ws-add-label">Clock Out
-        <input type="datetime-local" id="ws-add-clock-out" class="ws-dt-input">
-      </label>
-      <div class="ws-add-actions">
-        <button type="button" id="ws-add-submit" class="ws-act-btn ws-act-btn--save">Add</button>
-        <button type="button" id="ws-add-cancel" class="ws-act-btn">Cancel</button>
-      </div>
-      <span class="ws-add-err"></span>
-    </div>
-    <div class="work-sessions-table-wrap">
-      <table class="work-sessions-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Clock In</th>
-            <th>Clock Out</th>
-            <th>Duration</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="ws-table-body">
-          <tr><td colspan="5" style="color:#555; font-style:italic; padding:12px;">Loading&hellip;</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <button type="button" id="ws-load-more" class="load-more-btn" style="display:none;">Load More</button>
   </section>
 </div>
 
