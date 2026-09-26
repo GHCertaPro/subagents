@@ -4,10 +4,11 @@
 
 import "dotenv/config";
 import crypto from "node:crypto";
-import express from "express";
-import cookieParser from "cookie-parser";
+import fs from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import express from "express";
+import cookieParser from "cookie-parser";
 import logsRouter from "./routes/logs.js";
 import authRouter from "./routes/auth.js";
 import timeRouter from "./routes/time.js";
@@ -24,6 +25,60 @@ function checkRequiredEnv() {
     missing.push("DATABASE_URL");
   }
   return missing;
+}
+
+// ── Auto-run pending migrations on startup ───────────────────────────────────
+async function autoMigrate() {
+  const MIGRATIONS_DIR = path.join(__dirname, "migrations");
+  try {
+    const pool = getPool();
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        filename    TEXT PRIMARY KEY,
+        applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+
+    const applied = new Set(
+      (await pool.query("SELECT filename FROM schema_migrations")).rows.map(
+        (r) => r.filename
+      )
+    );
+
+    const files = fs
+      .readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+
+    let ranCount = 0;
+    for (const file of files) {
+      if (applied.has(file)) {
+        console.log(`[migrate] skip (already applied): ${file}`);
+        continue;
+      }
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
+      console.log(`[migrate] applying: ${file}`);
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        await client.query(
+          "INSERT INTO schema_migrations (filename) VALUES ($1)",
+          [file]
+        );
+        await client.query("COMMIT");
+        ranCount++;
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+    console.log(`[migrate] done. ${ranCount} migration(s) applied.`);
+  } catch (err) {
+    console.error("[migrate] FAILED:", err.message);
+  }
 }
 
 // ── Seed bot_tokens from BOT_KEYS env var on first run ──────────────────────
@@ -66,7 +121,7 @@ async function seedBotTokens() {
   }
 }
 
-function main() {
+async function main() {
   const missing = checkRequiredEnv();
   if (missing.length > 0) {
     console.error(
@@ -297,6 +352,7 @@ function main() {
   });
 
   const port = parseInt(process.env.PORT, 10) || 3000;
+  await autoMigrate();
   app.listen(port, async () => {
     console.log(`[startup] subagents-log-service listening on port ${port}`);
     // Seed bot_tokens from BOT_KEYS env var if table is empty

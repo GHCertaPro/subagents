@@ -170,6 +170,7 @@ function renderRunningSlot(log) {
   const elapsed = formatElapsed(log.started_at);
   div.innerHTML = `
     <div class="task-name">${escapeHtml(formatTaskName(log.task_name))}</div>
+    ${log.bot_id ? `<div class="bot-badge">${escapeHtml(log.bot_id)}</div>` : ''}
     <div class="elapsed" data-started-at="${escapeHtml(log.started_at)}">running ${elapsed}</div>
   `;
   div.dataset.id = log.id;
@@ -182,6 +183,7 @@ function renderQueuedRow(log) {
   const queuedAtLabel = log.queued_at ? new Date(log.queued_at).toLocaleString() : "unknown";
   li.innerHTML = `
     <span class="task-name">${escapeHtml(formatTaskName(log.task_name))}</span>
+    ${log.bot_id ? `<span class="bot-badge">${escapeHtml(log.bot_id)}</span>` : ''}
     <span class="queued-at">queued ${escapeHtml(queuedAtLabel)}</span>
     <span class="waiting" data-queued-at="${escapeHtml(log.queued_at)}">waiting ${waiting}</span>
   `;
@@ -217,6 +219,7 @@ function renderHistoryRow(log) {
   li.className = `status-${escapeHtml(log.status)}`;
   li.innerHTML = `
     <span class="task-name">${escapeHtml(formatTaskName(log.task_name))}</span>
+    ${log.bot_id ? `<span class="bot-badge">${escapeHtml(log.bot_id)}</span>` : ''}
     <span class="status-badge">${escapeHtml(log.status)}</span>
     <span class="history-times">ended ${escapeHtml(formatDateOnly(log.ended_at))}</span>
   `;
