@@ -425,30 +425,24 @@ async function poll() {
 // populates the #bot-switcher <select>. On change, updates sessionStorage +
 // the URL ?token= param and reloads to show the selected bot's runs.
 async function loadBotSwitcher() {
+  // Select lives in the header nav — never inside a polled section, so
+  // renderLive() can't wipe it. Starts hidden via HTML `hidden` attribute;
+  // we only un-hide when >=2 bots are returned.
   const select = document.getElementById("bot-switcher");
   if (!select) return;
 
-  if (!DASHBOARD_TOKEN) {
-    select.style.display = "none";
-    return;
-  }
+  if (!DASHBOARD_TOKEN) return; // leave hidden
 
   try {
     const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/bots`, {
       headers: { "x-api-key": DASHBOARD_TOKEN },
       cache: "no-store",
     });
-    if (!res.ok) {
-      select.style.display = "none";
-      return;
-    }
+    if (!res.ok) return; // leave hidden
     const data = await res.json();
     const bots = Array.isArray(data.bots) ? data.bots : [];
 
-    if (bots.length === 0) {
-      select.style.display = "none";
-      return;
-    }
+    if (bots.length < 2) return; // nothing to switch to — leave hidden
 
     select.innerHTML = "";
     for (const bot of bots) {
@@ -461,11 +455,7 @@ async function loadBotSwitcher() {
       select.appendChild(opt);
     }
 
-    // Hide if only one bot — nothing to switch to
-    if (bots.length < 2) {
-      select.style.display = "none";
-      return;
-    }
+    select.hidden = false; // show only when >=2 bots available
 
     select.addEventListener("change", () => {
       const newToken = select.value;
@@ -477,7 +467,7 @@ async function loadBotSwitcher() {
     });
   } catch (err) {
     console.warn("[bot-switcher] failed to load bots:", err.message);
-    select.style.display = "none";
+    // leave hidden
   }
 }
 

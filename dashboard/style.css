@@ -142,29 +142,8 @@ section > h2 {
   margin-bottom: 16px;
 }
 
-/* --- Bot switcher: section header flex row ---
-   Wraps the section h2 + the bot-switcher dropdown side-by-side.
-   The border-bottom + padding/margin move from h2 to this row so the
-   dividing line spans the full width between heading and dropdown. */
-.section-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #333;
-  padding-bottom: 8px;
-  margin-bottom: 16px;
-}
-
-.section-header-row h2 {
-  font-size: 1.05rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #ccc;
-  margin: 0;
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
+/* --- Bot switcher --- */
+/* Lives in the header nav; starts hidden, shown only when >=2 bots available */
 .bot-switcher {
   font-family: inherit;
   font-size: 0.75rem;
