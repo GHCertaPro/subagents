@@ -28,7 +28,7 @@
   function fmtDatetime(dt) {
     if (!dt) return "—";
     const d = typeof dt === "string" ? new Date(dt) : dt;
-    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const day = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     return `${day} | ${time}`;
   }
@@ -157,7 +157,6 @@
         const end = isOpen ? "working…" : fmtDatetime(e.clocked_out).split(" | ")[1];
         const dur = isOpen ? fmtMinutes(elapsedMins(e.clocked_in)) : fmtMinutes(e.duration_minutes);
         const dateLabel = new Date(e.clocked_in).toLocaleDateString("en-US", {
-          weekday: "short",
           month: "short",
           day: "numeric",
         });

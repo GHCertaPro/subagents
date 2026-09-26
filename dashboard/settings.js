@@ -141,7 +141,7 @@ function fmtTime(iso) {
 /** Format ISO string to "Mon Sep 23" */
 function fmtDate(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** Convert ISO string to datetime-local input value (local time, no seconds) */
