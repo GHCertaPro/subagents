@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import logsRouter from "./routes/logs.js";
 import authRouter from "./routes/auth.js";
 import timeRouter from "./routes/time.js";
+import botsRouter from "./routes/bots.js";
 import { requireAdmin } from "./auth.js";
 import { getPool } from "./db.js";
 
@@ -86,6 +87,7 @@ function main() {
   app.use("/api/logs", logsRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/time", timeRouter);
+  app.use("/api/bots", botsRouter);
 
   // ── POST /api/redeem — public, redeem an invite code ──────────────────────
   app.post("/api/redeem", async (req, res) => {

@@ -420,9 +420,71 @@ async function poll() {
   renderLive();
 }
 
+// ── Bot switcher ──────────────────────────────────────────────────────────────
+// Fetches GET /api/bots (authenticated with the current DASHBOARD_TOKEN) and
+// populates the #bot-switcher <select>. On change, updates sessionStorage +
+// the URL ?token= param and reloads to show the selected bot's runs.
+async function loadBotSwitcher() {
+  const select = document.getElementById("bot-switcher");
+  if (!select) return;
+
+  if (!DASHBOARD_TOKEN) {
+    select.style.display = "none";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${window.SUBAGENTS_API_BASE}/api/bots`, {
+      headers: { "x-api-key": DASHBOARD_TOKEN },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      select.style.display = "none";
+      return;
+    }
+    const data = await res.json();
+    const bots = Array.isArray(data.bots) ? data.bots : [];
+
+    if (bots.length === 0) {
+      select.style.display = "none";
+      return;
+    }
+
+    select.innerHTML = "";
+    for (const bot of bots) {
+      const opt = document.createElement("option");
+      opt.value = bot.api_key;
+      opt.textContent = bot.display_name || bot.bot_id;
+      if (bot.api_key === DASHBOARD_TOKEN) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    }
+
+    // Hide if only one bot — nothing to switch to
+    if (bots.length < 2) {
+      select.style.display = "none";
+      return;
+    }
+
+    select.addEventListener("change", () => {
+      const newToken = select.value;
+      if (!newToken || newToken === DASHBOARD_TOKEN) return;
+      sessionStorage.setItem(SESSION_KEY, newToken);
+      const url = new URL(window.location.href);
+      url.searchParams.set("token", newToken);
+      window.location.href = url.toString();
+    });
+  } catch (err) {
+    console.warn("[bot-switcher] failed to load bots:", err.message);
+    select.style.display = "none";
+  }
+}
+
 // ── Page init ─────────────────────────────────────────────────────────────────
 function initLive() {
   if (!checkTokenGate()) return;
+  loadBotSwitcher();
   poll();
   setInterval(poll, POLL_INTERVAL_MS);
   setInterval(tickRunning, RUNNING_TICK_INTERVAL_MS);
