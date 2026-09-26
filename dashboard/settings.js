@@ -690,6 +690,23 @@ function renderTodaySection() {
     try {
       localStorage.setItem("__auth_user", JSON.stringify({ email: user.email, role: user.role }));
     } catch (_) {}
+
+    // Fetch bot access list
+    try {
+      const botsRes = await fetch(`${window.SUBAGENTS_API_BASE}/api/auth/me/bots`, {
+        headers: { Authorization: `Bearer ${jwtToken}` },
+        cache: "no-store",
+      });
+      if (botsRes.ok) {
+        const botsData = await botsRes.json();
+        const botsEl = document.getElementById("settings-bots");
+        if (botsEl) {
+          botsEl.textContent = botsData.bots && botsData.bots.length > 0
+            ? botsData.bots.map(b => b.display_name || b.bot_id).join(", ")
+            : "None";
+        }
+      }
+    } catch (_) {}
   } catch (err) {
     if (errorBanner) {
       errorBanner.textContent = `Failed to load account info: ${err.message}`;

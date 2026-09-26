@@ -151,17 +151,25 @@ router.post("/login", async (req, res) => {
 
     const token = signToken(user);
 
-    // Fetch the user's personal bot token (linked via user_id on bot_tokens)
+    // Return all bots accessible to this user (personal + explicitly granted)
     const botTokenResult = await pool.query(
-      "SELECT api_key, bot_id FROM bot_tokens WHERE user_id = $1 LIMIT 1",
+      `SELECT DISTINCT bt.bot_id, bt.display_name, bt.api_key
+       FROM bot_tokens bt WHERE bt.user_id = $1
+       UNION
+       SELECT bt.bot_id, bt.display_name, bt.api_key
+       FROM user_bots ub JOIN bot_tokens bt ON bt.bot_id = ub.bot_id
+       WHERE ub.user_id = $1
+       ORDER BY bot_id ASC`,
       [user.id]
     );
-    const userBotToken = botTokenResult.rows[0]?.api_key ?? null;
+    const userBots = botTokenResult.rows;
+    const userBotToken = userBots[0]?.api_key ?? null;
 
     return res.json({
       token,
       user: { id: user.id, email: user.email, role: user.role },
       bot_token: userBotToken,
+      bots: userBots,
     });
   } catch (err) {
     console.error("[POST /api/auth/login] error:", err.message);
@@ -206,6 +214,33 @@ router.get("/me/token", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("[GET /api/auth/me/token] error:", err.message);
     return res.status(500).json({ error: "Failed to fetch bot token." });
+  }
+});
+
+// ── GET /api/auth/me/bots ─────────────────────────────────────────────────────
+// Returns all bot tokens the authenticated user has access to:
+//   - Their personal bot_token (bot_tokens.user_id = req.user.id)
+//   - Any explicitly granted bots (user_bots table)
+// Response: { bots: [{ bot_id, display_name, api_key }] }
+router.get("/me/bots", verifyToken, async (req, res) => {
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT DISTINCT bt.bot_id, bt.display_name, bt.api_key
+       FROM bot_tokens bt
+       WHERE bt.user_id = $1
+       UNION
+       SELECT bt.bot_id, bt.display_name, bt.api_key
+       FROM user_bots ub
+       JOIN bot_tokens bt ON bt.bot_id = ub.bot_id
+       WHERE ub.user_id = $1
+       ORDER BY bot_id ASC`,
+      [req.user.id]
+    );
+    return res.json({ bots: result.rows });
+  } catch (err) {
+    console.error("[GET /api/auth/me/bots] error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch bot access list." });
   }
 });
 
